@@ -8,11 +8,15 @@ import {
   sha256HexWeb,
   verifyInviteCodeClient,
 } from "./security-shield.js";
-import { generateRealCadEngineering } from "./engineering-engine.js";
+import {
+  computeAutoReinforcedParams,
+  generateMakeBlueprintJson,
+  generateRealCadEngineering,
+} from "./engineering-engine.js";
 import { compileUniversalAp214Step } from "./step-ap214-compiler.js";
 import { EngineeringCadStudioViewer } from "./viewer3d.js";
 
-// 0. REA 등 웹사이트 무단 복제기 및 비인가 도메인 실행 즉시 차단
+// 무단 웹 복제기(REA/HTTrack) 및 비인가 도메인 실행 원천 차단
 enforceAntiCloneGuard();
 
 const els = {
@@ -27,23 +31,27 @@ const els = {
   loginBtn: document.getElementById("loginBtn"),
   gateMsg: document.getElementById("gateMsg"),
 
-  micBtn: document.getElementById("micBtn"),
+  makeStatusDot: document.getElementById("makeStatusDot"),
   promptInput: document.getElementById("promptInput"),
+  micBtn: document.getElementById("micBtn"),
   solveBtn: document.getElementById("solveBtn"),
+
   loadSlider: document.getElementById("loadSlider"),
   loadValLabel: document.getElementById("loadValLabel"),
+  accelSlider: document.getElementById("accelSlider"),
+  accelValLabel: document.getElementById("accelValLabel"),
   widthSlider: document.getElementById("widthSlider"),
   widthValLabel: document.getElementById("widthValLabel"),
   strokeSlider: document.getElementById("strokeSlider"),
   strokeValLabel: document.getElementById("strokeValLabel"),
+  actuationSelect: document.getElementById("actuationSelect"),
   padSelect: document.getElementById("padSelect"),
 
   designTitle: document.getElementById("designTitle"),
   designSubtitle: document.getElementById("designSubtitle"),
   viewportContainer: document.getElementById("viewportContainer"),
   blueprintCanvas: document.getElementById("blueprintCanvas"),
-  liveForceHud: document.getElementById("liveForceHud"),
-  liveDimHud: document.getElementById("liveDimHud"),
+  partInspectorPill: document.getElementById("partInspectorPill"),
   watermarkOverlay: document.getElementById("watermarkOverlay"),
 
   simStrokeSlider: document.getElementById("simStrokeSlider"),
@@ -53,34 +61,52 @@ const els = {
   autoCycleBtn: document.getElementById("autoCycleBtn"),
   workpieceToggleBtn: document.getElementById("workpieceToggleBtn"),
 
-  safetyBadge: document.getElementById("safetyBadge"),
-  statReqForce: document.getElementById("statReqForce"),
-  statPreloadForce: document.getElementById("statPreloadForce"),
-  statHoldKg: document.getElementById("statHoldKg"),
-  statSpringRate: document.getElementById("statSpringRate"),
-  formulaBanner: document.getElementById("formulaBanner"),
+  tabPhysics: document.getElementById("tabPhysics"),
+  tabBom: document.getElementById("tabBom"),
+  tabMake: document.getElementById("tabMake"),
+
+  kpiDynLoad: document.getElementById("kpiDynLoad"),
+  kpiActForce: document.getElementById("kpiActForce"),
+  kpiMaxHold: document.getElementById("kpiMaxHold"),
+  kpiSafety: document.getElementById("kpiSafety"),
+  reinforceAlertBox: document.getElementById("reinforceAlertBox"),
+  reinforceWarningText: document.getElementById("reinforceWarningText"),
+  autoReinforceBtn: document.getElementById("autoReinforceBtn"),
+  limitCardsContainer: document.getElementById("limitCardsContainer"),
+  equationBox: document.getElementById("equationBox"),
 
   priceBest: document.getElementById("priceBest"),
   priceFast: document.getElementById("priceFast"),
   priceCheap: document.getElementById("priceCheap"),
   bomTableBody: document.getElementById("bomTableBody"),
-  downloadStepBtn: document.getElementById("downloadStepBtn"),
   downloadBomBtn: document.getElementById("downloadBomBtn"),
+
+  makeWebhookInput: document.getElementById("makeWebhookInput"),
+  saveMakeUrlBtn: document.getElementById("saveMakeUrlBtn"),
+  clearMakeUrlBtn: document.getElementById("clearMakeUrlBtn"),
+  downloadMakeBpBtn: document.getElementById("downloadMakeBpBtn"),
+  makeMsg: document.getElementById("makeMsg"),
+
+  downloadStepBtn: document.getElementById("downloadStepBtn"),
   exportMsg: document.getElementById("exportMsg"),
 };
 
 let session = null;
-let simulateCustomerMask = false; // 관리자가 고객용 정보숨김 화면을 즉시 확인하는 토글
-let currentRawDesign = null;
+let simulateCustomerMask = false;
+let currentDesign = null;
 let viewer = null;
 
 let activeOverrides = {
-  mechanismType: "parallel_gripper",
-  loadKg: 10,
-  objWidthMm: 55,
-  strokeMm: 28,
-  padKey: "urethane",
+  mechanismType: "vblock_clamp",
+  loadKg: 45,
+  accelG: 0.5,
+  objWidthMm: 42,
+  strokeMm: 24,
+  actuation: "spring",
+  padKey: "carbide_jaw",
   priority: "best",
+  shaftDia: null,
+  springTierBoost: 0,
 };
 
 let isRecording = false;
@@ -92,14 +118,33 @@ function formatKrw(n) {
   return "₩" + Number(n || 0).toLocaleString("ko-KR");
 }
 
-function showMsg(container, text, isErr = false) {
-  container.innerHTML = `<div class="toast ${isErr ? "toast-err" : "toast-ok"}">${text}</div>`;
+function showBanner(el, text, isErr = false) {
+  el.innerHTML = `<div class="msg-banner ${isErr ? "msg-err" : "msg-ok"}">${text}</div>`;
 }
 
 function getEffectiveTier() {
   if (!session) return "preview";
-  if (simulateCustomerMask) return "preview";
-  return session.tier;
+  return simulateCustomerMask ? "preview" : session.tier;
+}
+
+function getSavedMakeUrl() {
+  try {
+    return localStorage.getItem("formech_make_webhook") || "";
+  } catch {
+    return "";
+  }
+}
+
+function updateMakeIndicator() {
+  const url = getSavedMakeUrl();
+  if (url) {
+    els.makeStatusDot.textContent = "Make.com 연결됨";
+    els.makeStatusDot.style.color = "#10b981";
+    els.makeWebhookInput.value = url;
+  } else {
+    els.makeStatusDot.textContent = "내장 CAE 엔진";
+    els.makeStatusDot.style.color = "#64748b";
+  }
 }
 
 function enterStudio(authSession) {
@@ -116,16 +161,34 @@ function enterStudio(authSession) {
     els.customerMaskToggleBtn.classList.add("hidden");
   }
 
-  updateAuthHeaderUI();
+  updateHeaderAuthState();
+  updateMakeIndicator();
 
   if (!viewer) {
     viewer = new EngineeringCadStudioViewer({
       containerEl: els.viewportContainer,
       blueprintCanvasEl: els.blueprintCanvas,
+      onPartSelected: (part) => {
+        if (!part) {
+          els.partInspectorPill.classList.add("hidden");
+          return;
+        }
+        const effTier = getEffectiveTier();
+        const codeInfo =
+          TIER_LEVEL[effTier] >= TIER_LEVEL.pro
+            ? part.stepName
+            : "STEP-ID [PRO 전용]";
+        els.partInspectorPill.innerHTML = `
+          <div style="font-weight:700;color:#38bdf8;">${part.labelKo}</div>
+          <div class="num" style="color:#cbd5e1;margin-top:2px;">재질: ${part.material || "표준합금"} · ID: ${codeInfo}</div>
+        `;
+        els.partInspectorPill.classList.remove("hidden");
+      },
     });
+
     viewer.onLiveStrokeTick = (ratio) => {
       els.simStrokeSlider.value = String(Math.round(ratio * 100));
-      updateLiveForceHud(ratio);
+      updateStrokeTelemetry(ratio);
     };
   } else {
     viewer.resize();
@@ -133,171 +196,236 @@ function enterStudio(authSession) {
 
   if (!els.promptInput.value.trim()) {
     els.promptInput.value =
-      "담뱃갑을 달걀 쥐듯이 잡아서 10kg까지 미끄러져서 떨어지지 않게 버티는 그리퍼 만들어줘";
+      "원통 서스 파이프 Ø42 CNC 드릴링 치는데 절삭부하 45kgf 걸려도 회전 안 하게 90도 브이블록 상부 가압 지그 짜줘";
   }
-  runFullDesignFromPrompt();
+  executePromptSolve();
 }
 
-function updateAuthHeaderUI() {
+function updateHeaderAuthState() {
   const effTier = getEffectiveTier();
-  els.tierBadge.className = `badge-tier tier-${effTier}`;
+  els.tierBadge.className = `tier-chip tier-${effTier}`;
   els.tierBadge.textContent = simulateCustomerMask
-    ? "PREVIEW (고객 시점 테스트)"
+    ? "PREVIEW (고객 마스킹)"
     : effTier.toUpperCase();
-  els.userLabel.textContent = session?.label || "";
-
+  els.userLabel.textContent = session?.userId || "";
   els.customerMaskToggleBtn.textContent = simulateCustomerMask
-    ? "🔓 관리자 전체공개 시점으로 복귀"
-    : "👁️ 고객용 정보숨김 시점 미리보기";
+    ? "관리자 전체공개 복귀"
+    : "고객 열람 시점 (형번 마스킹)";
 }
 
-function syncControlsFromParams(params) {
+function syncControlsFromParams(p) {
   activeOverrides = {
-    mechanismType: params.mechanismType,
-    loadKg: params.loadKg,
-    objWidthMm: params.objWidthMm,
-    strokeMm: params.strokeMm,
-    padKey: params.padKey,
-    priority: params.priority,
-    usePneumatic: params.usePneumatic,
+    mechanismType: p.mechanismType,
+    loadKg: p.loadKg,
+    accelG: p.accelG,
+    objWidthMm: p.objWidthMm,
+    strokeMm: p.strokeMm,
+    actuation: p.actuation,
+    padKey: p.padKey,
+    priority: p.priority,
+    shaftDia: p.shaftDiameterOverride || null,
+    springTierBoost: p.springTierBoost || 0,
   };
 
-  els.loadSlider.value = String(Math.round(params.loadKg));
-  els.loadValLabel.textContent = `${params.loadKg} kg`;
+  els.loadSlider.value = String(Math.round(p.loadKg));
+  els.loadValLabel.textContent = `${p.loadKg} kgf`;
 
-  els.widthSlider.value = String(Math.round(params.objWidthMm));
-  els.widthValLabel.textContent = `${params.objWidthMm} mm`;
+  els.accelSlider.value = String(p.accelG);
+  els.accelValLabel.textContent = `${p.accelG.toFixed(1)} G`;
 
-  els.strokeSlider.value = String(Math.round(params.strokeMm));
-  els.strokeValLabel.textContent = `${params.strokeMm} mm`;
+  els.widthSlider.value = String(Math.round(p.objWidthMm));
+  els.widthValLabel.textContent = `${p.objWidthMm} mm`;
 
-  els.padSelect.value = params.padKey;
+  els.strokeSlider.value = String(Math.round(p.strokeMm));
+  els.strokeValLabel.textContent = `${p.strokeMm} mm`;
 
-  document.querySelectorAll(".mech-tab").forEach((btn) => {
-    btn.classList.toggle("active", btn.dataset.mech === params.mechanismType);
+  els.actuationSelect.value = p.actuation;
+  els.padSelect.value = p.padKey;
+
+  document.querySelectorAll(".mech-pill").forEach((b) => {
+    b.classList.toggle("active", b.dataset.mech === p.mechanismType);
   });
 
-  document.querySelectorAll(".cost-card").forEach((card) => {
-    card.classList.toggle("active", card.dataset.prio === params.priority);
+  document.querySelectorAll(".tier-card").forEach((c) => {
+    c.classList.toggle("active", c.dataset.prio === p.priority);
   });
 }
 
-function runFullDesignFromPrompt() {
+async function executePromptSolve() {
   els.exportMsg.innerHTML = "";
-  // 텍스트 입력 시에는 자연어 의도를 우선 분석
-  const raw = generateRealCadEngineering(els.promptInput.value, {});
-  currentRawDesign = raw;
-  syncControlsFromParams(raw.params);
-  renderCurrentDesign();
+  els.partInspectorPill.classList.add("hidden");
+  const promptText = els.promptInput.value.trim();
+
+  let makeOverrides = {};
+  const makeUrl = getSavedMakeUrl();
+
+  if (makeUrl && /^https:\/\/hook\.[a-z0-9-]+\.make\.com\//i.test(makeUrl)) {
+    els.solveBtn.disabled = true;
+    els.solveBtn.textContent = "Make AI 해석 중...";
+    try {
+      const res = await fetch(makeUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          prompt: promptText,
+          requestedAt: new Date().toISOString(),
+        }),
+      });
+      if (res.ok) {
+        const json = await res.json().catch(() => null);
+        if (json && typeof json === "object") {
+          makeOverrides = json;
+        }
+      }
+    } catch {
+      // Make 웹훅 미응답 시 내장 CAE 물리 솔버로 무중단 처리
+    } finally {
+      els.solveBtn.disabled = false;
+      els.solveBtn.textContent = "역학 해석 및 3D 생성";
+    }
+  }
+
+  currentDesign = generateRealCadEngineering(promptText, makeOverrides);
+  syncControlsFromParams(currentDesign.params);
+  renderAllPanels();
 }
 
-function runDesignFromSliders() {
+function executeSliderSolve() {
   els.exportMsg.innerHTML = "";
-  const raw = generateRealCadEngineering(els.promptInput.value, activeOverrides);
-  currentRawDesign = raw;
-  renderCurrentDesign();
+  currentDesign = generateRealCadEngineering(els.promptInput.value, activeOverrides);
+  renderAllPanels();
 }
 
-function renderCurrentDesign() {
-  if (!currentRawDesign) return;
+function renderAllPanels() {
+  if (!currentDesign) return;
   const effTier = getEffectiveTier();
-  const viewData = redactEngineeringResult(currentRawDesign, effTier);
+  const view = redactEngineeringResult(currentDesign, effTier);
 
-  els.designTitle.textContent = viewData.titleKo;
-  els.designSubtitle.textContent = viewData.subtitleKo;
+  els.designTitle.textContent = `${view.titleKo} (${view.dims.w}×${view.dims.d}×${view.dims.h}mm)`;
+  els.designSubtitle.textContent = view.subtitleKo;
+  els.watermarkOverlay.textContent = `VAULT LOCKED · ${session.userId} · ${effTier.toUpperCase()}`;
 
-  const wmk = `${session.userId} • ${effTier.toUpperCase()} • DOMAIN-LOCKED`;
-  els.watermarkOverlay.textContent = wmk;
+  viewer.loadDesign(currentDesign, { isRedacted: view.isRedacted });
 
-  viewer.loadDesign(currentRawDesign, {
-    isRedacted: viewData.isRedacted,
-    watermarkText: wmk,
-  });
+  const sRatio = Number(els.simStrokeSlider.value) / 100;
+  viewer.setStrokeRatio(sRatio);
+  updateStrokeTelemetry(sRatio);
 
-  const strokeVal = Number(els.simStrokeSlider.value) / 100;
-  viewer.setStrokeRatio(strokeVal);
-  updateLiveForceHud(strokeVal);
+  // KPI 업데이트
+  const ph = view.physics;
+  els.kpiDynLoad.textContent = `${ph.dynamicLoadN} N`;
+  els.kpiActForce.textContent = `${ph.actuatorForceN} N`;
+  els.kpiMaxHold.textContent = `${ph.actualHoldKgf} kgf`;
+  els.kpiSafety.textContent = `${ph.safetyFactor}x`;
+  els.kpiSafety.style.color =
+    ph.safetyFactor >= 2.0 ? "#10b981" : ph.safetyFactor >= 1.3 ? "#f59e0b" : "#ef4444";
 
-  els.liveDimHud.textContent = `외형: ${viewData.dims.w} × ${viewData.dims.d} × ${viewData.dims.h} mm (${currentRawDesign.parts.length}개 부품)`;
+  // 물리 임계치 초과 경보 & 1클릭 자동 보강 노출
+  const failedLimits = currentDesign.criticalLimits.filter((l) => l.pct >= 85);
+  if (failedLimits.length > 0) {
+    const msgs = failedLimits
+      .map((l) => l.warningMsg || `${l.title} 임계 근접(${l.pct}%)`)
+      .join(" / ");
+    els.reinforceWarningText.textContent = `물리 한계 경고: ${msgs}`;
+    els.reinforceAlertBox.classList.remove("hidden");
+  } else {
+    els.reinforceAlertBox.classList.add("hidden");
+  }
 
-  // 역학 리포트 업데이트
-  const ph = viewData.physics;
-  els.safetyBadge.textContent = `안전율 ${ph.safetyFactor}배 적합`;
-  els.statReqForce.textContent = `${ph.requiredClampForceN} N`;
-  els.statPreloadForce.textContent = `${ph.actualPreloadForceN} N`;
-  els.statHoldKg.textContent = `최대 ${ph.achievedMaxHoldKg} kg`;
-  els.statSpringRate.textContent = ph.exactSpringRateNmm;
-  els.formulaBanner.textContent = ph.springFormulaDetail;
+  // 4대 재료역학 임계 바 렌더링
+  els.limitCardsContainer.innerHTML = "";
+  for (const lim of currentDesign.criticalLimits) {
+    const card = document.createElement("div");
+    card.className = `limit-card status-${lim.status}`;
+    const barW = Math.min(100, Math.max(4, lim.pct));
+    const pctColor =
+      lim.status === "CRITICAL"
+        ? "#ef4444"
+        : lim.status === "CAUTION"
+        ? "#f59e0b"
+        : "#10b981";
 
-  // 3종 미스미 원가 비교 카드 업데이트
-  const cc = viewData.costComparison;
+    card.innerHTML = `
+      <div class="limit-top">
+        <span>${lim.title}</span>
+        <span class="num" style="color:${pctColor};">${lim.pct}%</span>
+      </div>
+      <div class="limit-sub">
+        <span>${lim.materialSpec}</span>
+        <span class="num">${lim.currentText} / 한계 ${lim.limitText}</span>
+      </div>
+      <div class="bar-track">
+        <div class="bar-fill fill-${lim.status}" style="width:${barW}%;"></div>
+      </div>
+    `;
+    els.limitCardsContainer.appendChild(card);
+  }
+
+  els.equationBox.innerHTML = `
+    <div>${ph.formulaEquation}</div>
+    <div style="margin-top:4px;color:#38bdf8;">${ph.springSpecDetail}</div>
+  `;
+
+  // 미스미 3종 원가 비교 업데이트
+  const cc = view.costComparison;
   els.priceBest.textContent = formatKrw(cc.best.totalKrw);
   els.priceFast.textContent = formatKrw(cc.fast.totalKrw);
   els.priceCheap.textContent = formatKrw(cc.cheap.totalKrw);
 
-  document.querySelectorAll(".cost-card").forEach((card) => {
-    card.classList.toggle("active", card.dataset.prio === activeOverrides.priority);
+  document.querySelectorAll(".tier-card").forEach((c) => {
+    c.classList.toggle("active", c.dataset.prio === activeOverrides.priority);
   });
 
-  // 미스미 표준품 BOM 목차 렌더링 (Preview 시점에서는 형번 및 단가 보안 마스킹)
+  // BOM 테이블 렌더링 (클릭 시 3D 파트 하이라이트!)
   els.bomTableBody.innerHTML = "";
-  for (const row of viewData.bom) {
+  for (const row of view.bom) {
     const tr = document.createElement("tr");
-    const codeClass = viewData.isRedacted
-      ? "part-code-pill part-code-locked"
-      : "part-code-pill";
-    const priceStr =
-      row.unitPriceKrw === null
-        ? `<span style="color:#fcd34d;">잠김</span>`
+    tr.className = "bom-row";
+    const skuClass = view.isRedacted ? "sku-badge sku-locked" : "sku-badge";
+    const costText =
+      row.totalPriceKrw === null
+        ? `<span style="color:#fcd34d;">비공개</span>`
         : formatKrw(row.totalPriceKrw);
 
     tr.innerHTML = `
       <td>
-        <div style="font-weight:700;">${row.partName}</div>
-        <div style="font-size:10.5px;color:#94a3b8;">${row.category} · ${row.brand}</div>
+        <div style="font-weight:600;color:#f1f5f9;">${row.partName}</div>
+        <div style="font-size:10.5px;color:#64748b;">${row.category} · ${row.brand}</div>
       </td>
       <td>
-        <span class="${codeClass}">${row.partNumber}</span>
+        <span class="${skuClass}">${row.partNumber}</span>
         <div style="font-size:10.5px;color:#94a3b8;margin-top:2px;">${row.specSummary}</div>
       </td>
-      <td style="font-weight:700;">${row.qty}</td>
-      <td style="font-weight:600;white-space:nowrap;">
-        ${priceStr}
-        <div style="font-size:10px;color:#34d399;">${row.leadTime}</div>
+      <td class="num" style="font-weight:700;">${row.qty}</td>
+      <td class="num" style="white-space:nowrap;">
+        <div>${costText}</div>
+        <div style="font-size:10px;color:#10b981;">${row.leadTime}</div>
       </td>
     `;
+    tr.addEventListener("click", () => {
+      if (row.partId && viewer) {
+        viewer.highlightPartById(row.partId);
+      }
+    });
     els.bomTableBody.appendChild(tr);
   }
 }
 
-function updateLiveForceHud(ratio01) {
-  if (!currentRawDesign) return;
-  const ph = currentRawDesign.physics;
-  const curForce =
-    ph.actualPreloadForceN +
-    (ph.actualMaxOpenForceN - ph.actualPreloadForceN) * ratio01;
-  const curGap = ph.closedGapMm + ph.strokeMm * ratio01;
+function updateStrokeTelemetry(ratio01) {
+  if (!currentDesign) return;
   const pct = Math.round(ratio01 * 100);
-  const stateLabel =
-    pct === 0
-      ? "달걀 파지(Closed 프리로드)"
-      : pct >= 95
-      ? "보 형태 완전개방(Open)"
-      : `개폐 이동 중 (${pct}%)`;
-
-  els.simStrokeLabel.textContent = `${pct}% (${Math.round(curGap)}mm)`;
-  els.liveForceHud.innerHTML = `상태: <strong>${stateLabel}</strong> • 실시간 스프링 반력: <strong style="color:#38bdf8;">${curForce.toFixed(
-    1
-  )} N</strong>`;
+  const baseF = currentDesign.physics.actuatorForceN;
+  const liveF = baseF * (1 + 0.36 * ratio01);
+  els.simStrokeLabel.textContent = `${pct}% · ${liveF.toFixed(1)} N`;
 }
 
-async function handleDownloadStep() {
-  if (!currentRawDesign) return;
+async function handleExportStep() {
+  if (!currentDesign) return;
   const effTier = getEffectiveTier();
   if ((TIER_LEVEL[effTier] || 0) < TIER_LEVEL.pro) {
-    showMsg(
+    showBanner(
       els.exportMsg,
-      "🔒 현재 고객 미리보기(Preview) 등급에서는 .STEP 정밀 모델링 추출이 잠겨 있습니다. (PRO / ENTERPRISE / ADMIN 전용)",
+      "현재 고객 열람(Preview) 시점에서는 핵심 설계 보호를 위해 .STEP 추출이 차단되어 있습니다. (PRO 이상 승인 필요)",
       true
     );
     return;
@@ -305,14 +433,14 @@ async function handleDownloadStep() {
 
   els.downloadStepBtn.disabled = true;
   try {
-    const randSeed = `${session.userId}|${currentRawDesign.projectId}|${Date.now()}`;
-    const hash = await sha256HexWeb(randSeed);
+    const seed = `${session.userId}|${currentDesign.projectId}|${Date.now()}`;
+    const hash = await sha256HexWeb(seed);
     const watermarkId = "WMK-" + hash.slice(0, 10).toUpperCase();
 
     const stepAscii = compileUniversalAp214Step({
-      projectId: currentRawDesign.projectId,
-      titleEn: currentRawDesign.titleEn,
-      parts: currentRawDesign.parts,
+      projectId: currentDesign.projectId,
+      titleEn: currentDesign.titleEn,
+      parts: currentDesign.parts,
       watermark: {
         watermarkId,
         signatureHex: hash.slice(10, 34).toUpperCase(),
@@ -327,7 +455,7 @@ async function handleDownloadStep() {
 
     const blob = new Blob([stepAscii], { type: "application/octet-stream" });
     const url = URL.createObjectURL(blob);
-    const filename = `${currentRawDesign.projectId}_${watermarkId}.step`;
+    const filename = `${currentDesign.projectId}_${watermarkId}.step`;
     const a = document.createElement("a");
     a.href = url;
     a.download = filename;
@@ -336,29 +464,25 @@ async function handleDownloadStep() {
     a.remove();
     setTimeout(() => URL.revokeObjectURL(url), 3000);
 
-    showMsg(
+    showBanner(
       els.exportMsg,
-      `✅ 다운로드 완료: ${filename} (ISO-10303-21 AP214 정식 규격 — SolidWorks·Inventor·Fusion360·FreeCAD 완벽 호환 / 전자지문 ${watermarkId} 각인)`
+      `추출 완료: ${filename} (ISO-10303-21 AP214 정식 규격 · 해석적 진원 곡면 및 포렌식 워터마크 각인)`
     );
   } finally {
     els.downloadStepBtn.disabled = false;
   }
 }
 
-function handleDownloadBomCsv() {
-  if (!currentRawDesign) return;
+function handleExportBomCsv() {
+  if (!currentDesign) return;
   const effTier = getEffectiveTier();
   if ((TIER_LEVEL[effTier] || 0) < TIER_LEVEL.pro) {
-    showMsg(
-      els.exportMsg,
-      "🔒 미스미 실제 구매 형번이 포함된 발주서(.CSV)는 PRO 등급 이상에서만 다운로드할 수 있습니다.",
-      true
-    );
+    showBanner(els.exportMsg, "미스미 구매 형번이 포함된 BOM 추출은 PRO 이상 등급에서만 허용됩니다.", true);
     return;
   }
 
-  const header = "순번,분류,부품명,제조사,미스미/가공 형번,규격,재질,수량,납기,단가(원),합계(원)\n";
-  const rows = currentRawDesign.bom
+  const head = "No,분류,부품명,브랜드,미스미/가공 형번,사양,재질,수량,납기,단가(KRW),합계(KRW)\n";
+  const body = currentDesign.bom
     .map((r) =>
       [
         r.no,
@@ -376,77 +500,66 @@ function handleDownloadBomCsv() {
     )
     .join("\n");
 
-  // 한글 엑셀 깨짐 방지 UTF-8 BOM 추가
-  const blob = new Blob(["\uFEFF" + header + rows], {
-    type: "text/csv;charset=utf-8",
-  });
+  const blob = new Blob(["\uFEFF" + head + body], { type: "text/csv;charset=utf-8" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = `${currentRawDesign.projectId}_MISUMI_BOM.csv`;
+  a.download = `${currentDesign.projectId}_MISUMI_BOM.csv`;
   document.body.appendChild(a);
   a.click();
   a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 2000);
 
-  showMsg(els.exportMsg, "✅ 미스미(MISUMI) 표준품 발주용 BOM 리스트(.CSV)를 다운로드했습니다.");
+  showBanner(els.exportMsg, "미스미(MISUMI) 발주 규격서(.CSV)를 다운로드했습니다.");
 }
 
-// 음성 인식(Web Speech API 한국어)
-function toggleVoiceInput() {
+// 음성 지시 입력
+function toggleVoice() {
   const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!SpeechRec) {
-    showMsg(els.exportMsg, "현재 브라우저에서는 음성 인식이 제한됩니다. 크롬/엣지 브라우저를 권장합니다.", true);
+    showBanner(els.exportMsg, "음성 인식은 Chrome 또는 Edge 브라우저에서 지원됩니다.", true);
     return;
   }
-
   if (isRecording) {
     isRecording = false;
     els.micBtn.classList.remove("recording");
-    els.micBtn.textContent = "🎤 음성 말하기";
     try { recognition?.stop(); } catch {}
-    runFullDesignFromPrompt();
+    executePromptSolve();
     return;
   }
 
   isRecording = true;
   els.micBtn.classList.add("recording");
-  els.micBtn.textContent = "⏹ 말하기 완료 (클릭)";
-
   recognition = new SpeechRec();
   recognition.lang = "ko-KR";
   recognition.continuous = true;
   recognition.interimResults = true;
-
   recognition.onresult = (ev) => {
-    let spoken = "";
-    for (let i = 0; i < ev.results.length; i++) {
-      spoken += ev.results[i][0].transcript;
-    }
-    els.promptInput.value = spoken;
+    let txt = "";
+    for (let i = 0; i < ev.results.length; i++) txt += ev.results[i][0].transcript;
+    els.promptInput.value = txt;
   };
   recognition.onerror = () => {
     isRecording = false;
     els.micBtn.classList.remove("recording");
-    els.micBtn.textContent = "🎤 음성 말하기";
   };
   recognition.start();
 }
 
-// 로그인 및 세션 바인딩
-async function doLogin() {
+// 인증 및 전체 이벤트 바인딩
+async function handleLogin() {
   const verified = await verifyInviteCodeClient(els.inviteInput.value);
   if (!verified) {
-    showMsg(els.gateMsg, "승인되지 않은 초대코드입니다. 본인 전용 비공개 코드를 확인해 주세요.", true);
+    showBanner(els.gateMsg, "유효하지 않은 초대코드입니다.", true);
     return;
   }
   els.gateMsg.innerHTML = "";
   enterStudio(verified);
 }
 
-els.loginBtn.addEventListener("click", doLogin);
+els.loginBtn.addEventListener("click", handleLogin);
 els.inviteInput.addEventListener("keydown", (e) => {
-  if (e.key === "Enter") doLogin();
+  if (e.key === "Enter") handleLogin();
 });
 
 els.logoutBtn.addEventListener("click", () => {
@@ -460,60 +573,131 @@ els.logoutBtn.addEventListener("click", () => {
 
 els.customerMaskToggleBtn.addEventListener("click", () => {
   simulateCustomerMask = !simulateCustomerMask;
-  updateAuthHeaderUI();
-  renderCurrentDesign();
+  updateHeaderAuthState();
+  renderAllPanels();
 });
 
-els.solveBtn.addEventListener("click", runFullDesignFromPrompt);
-els.micBtn.addEventListener("click", toggleVoiceInput);
+els.solveBtn.addEventListener("click", executePromptSolve);
+els.micBtn.addEventListener("click", toggleVoice);
 
-document.querySelectorAll(".quick-chip").forEach((chip) => {
-  chip.addEventListener("click", () => {
-    els.promptInput.value = chip.dataset.prompt || "";
-    runFullDesignFromPrompt();
+document.querySelectorAll(".preset-row").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    els.promptInput.value = btn.dataset.prompt || "";
+    executePromptSolve();
   });
 });
 
-document.querySelectorAll(".mech-tab").forEach((tab) => {
-  tab.addEventListener("click", () => {
-    activeOverrides.mechanismType = tab.dataset.mech;
-    document.querySelectorAll(".mech-tab").forEach((t) => t.classList.remove("active"));
-    tab.classList.add("active");
-    runDesignFromSliders();
+document.querySelectorAll(".mech-pill").forEach((pill) => {
+  pill.addEventListener("click", () => {
+    activeOverrides.mechanismType = pill.dataset.mech;
+    activeOverrides.shaftDia = null;
+    activeOverrides.springTierBoost = 0;
+    document.querySelectorAll(".mech-pill").forEach((p) => p.classList.remove("active"));
+    pill.classList.add("active");
+    executeSliderSolve();
   });
 });
 
 els.loadSlider.addEventListener("input", (e) => {
   activeOverrides.loadKg = Number(e.target.value);
-  els.loadValLabel.textContent = `${activeOverrides.loadKg} kg`;
-  runDesignFromSliders();
+  els.loadValLabel.textContent = `${activeOverrides.loadKg} kgf`;
+  executeSliderSolve();
+});
+
+els.accelSlider.addEventListener("input", (e) => {
+  activeOverrides.accelG = Number(e.target.value);
+  els.accelValLabel.textContent = `${activeOverrides.accelG.toFixed(1)} G`;
+  executeSliderSolve();
 });
 
 els.widthSlider.addEventListener("input", (e) => {
   activeOverrides.objWidthMm = Number(e.target.value);
   els.widthValLabel.textContent = `${activeOverrides.objWidthMm} mm`;
-  runDesignFromSliders();
+  executeSliderSolve();
 });
 
 els.strokeSlider.addEventListener("input", (e) => {
   activeOverrides.strokeMm = Number(e.target.value);
   els.strokeValLabel.textContent = `${activeOverrides.strokeMm} mm`;
-  runDesignFromSliders();
+  executeSliderSolve();
+});
+
+els.actuationSelect.addEventListener("change", (e) => {
+  activeOverrides.actuation = e.target.value;
+  executeSliderSolve();
 });
 
 els.padSelect.addEventListener("change", (e) => {
   activeOverrides.padKey = e.target.value;
-  runDesignFromSliders();
+  executeSliderSolve();
 });
 
-document.querySelectorAll(".cost-card").forEach((card) => {
-  card.addEventListener("click", () => {
-    activeOverrides.priority = card.dataset.prio;
-    runDesignFromSliders();
+// 물리 임계치 초과 시 1클릭 AI 자동 강성·사양 보강
+els.autoReinforceBtn.addEventListener("click", () => {
+  if (!currentDesign) return;
+  const upgraded = computeAutoReinforcedParams(currentDesign);
+  currentDesign = generateRealCadEngineering(els.promptInput.value, upgraded);
+  syncControlsFromParams(currentDesign.params);
+  renderAllPanels();
+  showBanner(
+    els.exportMsg,
+    "물리 임계치 보강 완료: 가이드축 직경·스프링 물성·구동 배력을 안전 한계 이내로 자동 승격했습니다."
+  );
+});
+
+// 우측 3탭 전환
+document.querySelectorAll(".seg-tab").forEach((tab) => {
+  tab.addEventListener("click", () => {
+    document.querySelectorAll(".seg-tab").forEach((t) => t.classList.remove("active"));
+    tab.classList.add("active");
+    const target = tab.dataset.tab;
+    els.tabPhysics.classList.toggle("hidden", target !== "physics");
+    els.tabBom.classList.toggle("hidden", target !== "bom");
+    els.tabMake.classList.toggle("hidden", target !== "make");
   });
 });
 
-// 뷰포트 툴바 이벤트
+document.querySelectorAll(".tier-card").forEach((card) => {
+  card.addEventListener("click", () => {
+    activeOverrides.priority = card.dataset.prio;
+    executeSliderSolve();
+  });
+});
+
+// Make.com 웹훅 연동 및 블루프린트 내보내기
+els.saveMakeUrlBtn.addEventListener("click", async () => {
+  const url = els.makeWebhookInput.value.trim();
+  if (!/^https:\/\/hook\.[a-z0-9-]+\.make\.com\//i.test(url)) {
+    showBanner(els.makeMsg, "올바른 Make.com Webhook 주소(https://hook...make.com/...)를 입력해 주세요.", true);
+    return;
+  }
+  localStorage.setItem("formech_make_webhook", url);
+  updateMakeIndicator();
+  showBanner(els.makeMsg, "Make.com 웹훅이 연결되었습니다. 이제 프롬프트 입력 시 Make 시나리오와 실시간 통신합니다.");
+});
+
+els.clearMakeUrlBtn.addEventListener("click", () => {
+  localStorage.removeItem("formech_make_webhook");
+  els.makeWebhookInput.value = "";
+  updateMakeIndicator();
+  showBanner(els.makeMsg, "Make 웹훅 연결을 해제하고 내장 고속 CAE 솔버 모드로 전환했습니다.");
+});
+
+els.downloadMakeBpBtn.addEventListener("click", () => {
+  const json = generateMakeBlueprintJson();
+  const blob = new Blob([json], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "formech-make-scenario-blueprint-v4.json";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
+  showBanner(els.makeMsg, "Make.com 시나리오 블루프린트(.JSON)가 다운로드되었습니다.");
+});
+
+// 뷰포트 카메라 및 스트로크 컨트롤
 document.querySelectorAll("[data-view]").forEach((btn) => {
   btn.addEventListener("click", () => {
     document.querySelectorAll("[data-view]").forEach((b) => b.classList.remove("active"));
@@ -533,11 +717,11 @@ els.simStrokeSlider.addEventListener("input", (e) => {
   if (isAutoCycling) {
     isAutoCycling = false;
     viewer?.setAutoCycle(false);
-    els.autoCycleBtn.textContent = "▶ 자동 개폐";
+    els.autoCycleBtn.textContent = "자동 왕복";
   }
-  const ratio = Number(e.target.value) / 100;
-  viewer?.setStrokeRatio(ratio);
-  updateLiveForceHud(ratio);
+  const r = Number(e.target.value) / 100;
+  viewer?.setStrokeRatio(r);
+  updateStrokeTelemetry(r);
 });
 
 els.explodeSlider.addEventListener("input", (e) => {
@@ -549,19 +733,18 @@ els.explodeSlider.addEventListener("input", (e) => {
 els.autoCycleBtn.addEventListener("click", () => {
   isAutoCycling = !isAutoCycling;
   viewer?.setAutoCycle(isAutoCycling);
-  els.autoCycleBtn.textContent = isAutoCycling ? "⏸ 정지" : "▶ 자동 개폐";
+  els.autoCycleBtn.textContent = isAutoCycling ? "정지" : "자동 왕복";
 });
 
 els.workpieceToggleBtn.addEventListener("click", () => {
   isWorkpieceShown = !isWorkpieceShown;
   viewer?.setWorkpieceVisible(isWorkpieceShown);
-  els.workpieceToggleBtn.textContent = isWorkpieceShown ? "📦 대상물 ON" : "📦 대상물 OFF";
+  els.workpieceToggleBtn.textContent = isWorkpieceShown ? "모재 표시" : "모재 숨김";
 });
 
-els.downloadStepBtn.addEventListener("click", handleDownloadStep);
-els.downloadBomBtn.addEventListener("click", handleDownloadBomCsv);
+els.downloadStepBtn.addEventListener("click", handleExportStep);
+els.downloadBomBtn.addEventListener("click", handleExportBomCsv);
 
-// 초기 진입 시 24시간 유효 저장 세션 확인
 const saved = loadPersistedSession();
 if (saved) {
   enterStudio(saved);
