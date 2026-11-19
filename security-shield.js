@@ -197,5 +197,10 @@ export function redactEngineeringResult(design, effectiveTier) {
       ...design.drawingSpec,
       tolerance: "끼워맞춤 공차(H7/g6) 및 기하공차 비공개 [PRO 전용]",
     },
+    reasoningSteps: Array.isArray(design.reasoningSteps)
+      ? design.reasoningSteps.map((step, idx) =>
+          idx === 2 ? "재료 임계 검증: 상세 축경·끼워맞춤 공차·전단응력 레시피 비공개 [PRO 전용]" : step
+        )
+      : [],
   };
 }
