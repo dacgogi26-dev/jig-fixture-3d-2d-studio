@@ -13,12 +13,35 @@
 const G0 = 9.80665; // 지구 표준 중력가속도 (m/s²)
 
 const WORKPIECE_PROFILES = [
-  { rx: /파이프|원통|봉|환봉|샤프트|실린더\s*모재|배관/, name: "SUS304 원통 파이프/샤프트 모재", shape: "cylinder", w: 42, d: 42, h: 110, defaultKg: 35 },
-  { rx: /파우치|배터리|셀|각형|모듈/, name: "이차전지 파우치/각형 셀", shape: "box", w: 68, d: 24, h: 104, defaultKg: 8 },
-  { rx: /pcb|기판|보드|포고핀|검사\s*지그|실장/, name: "전장 PCB 어셈블리 기판", shape: "box", w: 130, d: 90, h: 14, defaultKg: 28 },
-  { rx: /하우징|다이캐스팅|알루미늄\s*케이스|블록|절삭|밀링|드릴링/, name: "AL 다이캐스팅 가공 하우징", shape: "box", w: 84, d: 64, h: 52, defaultKg: 45 },
-  { rx: /인덱스|턴테이블|분할|스톱|핀/, name: "인덱스 회전 테이블 팔레트", shape: "box", w: 90, d: 70, h: 28, defaultKg: 60 },
+  { rx: /파이프|원통|봉|환봉|샤프트|실린더\s*모재|배관/, name: "SUS304 원통 파이프/샤프트 모재", shape: "cylinder", w: 42, d: 42, h: 110, defaultKg: 35, defaultMat: "sus304" },
+  { rx: /파우치|배터리|셀|각형|모듈/, name: "이차전지 파우치/각형 셀", shape: "box", w: 68, d: 24, h: 104, defaultKg: 8, defaultMat: "pouch_cell" },
+  { rx: /pcb|기판|보드|포고핀|검사\s*지그|실장/, name: "전장 PCB 어셈블리 기판", shape: "box", w: 130, d: 90, h: 14, defaultKg: 28, defaultMat: "fr4_pcb" },
+  { rx: /하우징|다이캐스팅|알루미늄\s*케이스|블록|절삭|밀링|드릴링/, name: "AL 다이캐스팅 가공 하우징", shape: "box", w: 84, d: 64, h: 52, defaultKg: 45, defaultMat: "al6061" },
+  { rx: /인덱스|턴테이블|분할|스톱|핀/, name: "인덱스 회전 테이블 팔레트", shape: "box", w: 90, d: 70, h: 28, defaultKg: 60, defaultMat: "sus304" },
 ];
+
+const WORKPIECE_MATERIALS = {
+  sus304: {
+    id: "sus304",
+    label: "SUS304 / S45C 강재",
+    allowContactMpa: 185.0,
+  },
+  al6061: {
+    id: "al6061",
+    label: "AL6061 아노다이징 하우징",
+    allowContactMpa: 58.0,
+  },
+  fr4_pcb: {
+    id: "fr4_pcb",
+    label: "FR-4 전장 PCB 기판",
+    allowContactMpa: 16.0,
+  },
+  pouch_cell: {
+    id: "pouch_cell",
+    label: "이차전지 파우치·박막 셀",
+    allowContactMpa: 2.2,
+  },
+};
 
 const CONTACT_SURFACES = {
   urethane: {
@@ -250,6 +273,16 @@ export function parseFieldEngineeringIntent(rawText = "", overrides = {}) {
   const shaftDiameterOverride = overrides.shaftDia ? Number(overrides.shaftDia) : null;
   const springTierBoost = Number(overrides.springTierBoost || 0);
 
+  // 피가공물 모재 물성 (표면 압흔·크랙 면압 한계 판정용)
+  let workpieceMat = overrides.workpieceMat || "";
+  if (!WORKPIECE_MATERIALS[workpieceMat]) {
+    if (/파우치|배터리|박막|셀/.test(lower)) workpieceMat = "pouch_cell";
+    else if (/pcb|기판|보드|포고핀/.test(lower)) workpieceMat = "fr4_pcb";
+    else if (/알루미늄|다이캐스팅|하우징|al60/.test(lower)) workpieceMat = "al6061";
+    else if (/서스|sus|파이프|강재|철|용접/.test(lower)) workpieceMat = "sus304";
+    else workpieceMat = wpProfile.defaultMat || "al6061";
+  }
+
   return {
     rawPrompt:
       text ||
@@ -266,6 +299,7 @@ export function parseFieldEngineeringIntent(rawText = "", overrides = {}) {
     padKey,
     actuation,
     priority,
+    workpieceMat,
     shaftDiameterOverride,
     springTierBoost,
   };
@@ -415,6 +449,14 @@ export function generateRealCadEngineering(rawText, overrides = {}) {
   const achievedSafetyFactor = Number((actualHoldForceN / Math.max(1, dynamicLoadN)).toFixed(2));
   const slipOrSourcePct = Math.round((requiredClampN / Math.max(1, actuatorForceN)) * 100);
 
+  // 피가공물 표면 찍힘·압흔 접촉 면압 계산 (현장 불량 클레임 1순위 검증)
+  const wpMatSpec = WORKPIECE_MATERIALS[p.workpieceMat] || WORKPIECE_MATERIALS.al6061;
+  const nominalPadAreaMm2 = Math.max(180, p.objWidthMm * 14);
+  const serrationFactor = p.padKey === "carbide_jaw" ? 0.24 : p.padKey === "urethane" ? 0.85 : 0.96;
+  const effectiveContactAreaMm2 = nominalPadAreaMm2 * serrationFactor;
+  const contactPressureMpa = Number((actuatorForceN / effectiveContactAreaMm2).toFixed(2));
+  const contactLimitPct = Math.round((contactPressureMpa / wpMatSpec.allowContactMpa) * 100);
+
   const classifyStatus = (pct) =>
     pct > 100 ? "CRITICAL" : pct >= 78 ? "CAUTION" : "SAFE";
 
@@ -479,6 +521,19 @@ export function generateRealCadEngineering(rawText, overrides = {}) {
             : `단일 스프링/인력만으로 ${p.loadKg}kgf(${p.accelG}G 관성 포함) 슬립 방어 불가 — 배력 기구 또는 공압 전환 필요!`
           : null,
     },
+    {
+      id: "workpiece_surface",
+      title: "피가공물 모재 압흔·찍힘 면압 한계",
+      materialSpec: `${wpMatSpec.label} (허용 ${wpMatSpec.allowContactMpa} MPa)`,
+      currentText: `${contactPressureMpa} MPa`,
+      limitText: `${wpMatSpec.allowContactMpa} MPa`,
+      pct: Math.min(160, contactLimitPct),
+      status: classifyStatus(contactLimitPct),
+      warningMsg:
+        contactLimitPct > 100
+          ? `접촉 면압(${contactPressureMpa}MPa)이 ${wpMatSpec.label} 허용치(${wpMatSpec.allowContactMpa}MPa)를 초과하여 모재 찍힘·크랙 불량 발생! (실리콘/우레탄 소프트 패드 전환 권장)`
+          : null,
+    },
   ];
 
   const hasCriticalWarning = criticalLimits.some((l) => l.pct >= 85);
@@ -518,6 +573,22 @@ export function generateRealCadEngineering(rawText, overrides = {}) {
   const sumCost = (key) =>
     built.bom.reduce((s, row) => s + row.prices[key] * row.qty, 0);
 
+  // B2B 기업 도입 ROI & 외주 설계비·리드타임 비교 지표 산출
+  const complexityWeight =
+    p.mechanismType === "ballscrew_stage" || p.mechanismType === "three_jaw_chuck"
+      ? 1.38
+      : p.mechanismType === "extrusion_frame" || p.mechanismType === "vertical_press"
+      ? 1.22
+      : 1.05;
+  const manualDesignHours = Math.round((16 + built.parts.length * 0.45) * complexityWeight);
+  const outsourcedDesignFeeKrw = Math.round((manualDesignHours * 42000) / 10000) * 10000;
+  const assemblySetupFeeKrw = Math.round((85000 + built.parts.length * 2800) / 5000) * 5000;
+  const selectedPartsKrw = sumCost(p.priority);
+  const supplySubtotalKrw = selectedPartsKrw + assemblySetupFeeKrw;
+  const vatKrw = Math.round(supplySubtotalKrw * 0.1);
+  const turnkeyTotalKrw = supplySubtotalKrw + vatKrw;
+  const netDesignSavingsKrw = Math.max(450000, outsourcedDesignFeeKrw - 45000);
+
   const leadMap = {
     best: "익일~2일",
     fast: "당일출고",
@@ -533,6 +604,17 @@ export function generateRealCadEngineering(rawText, overrides = {}) {
     dims: built.dims,
     hasCriticalWarning,
     criticalLimits,
+    b2bMetrics: {
+      manualDesignHours,
+      outsourcedDesignFeeKrw,
+      netDesignSavingsKrw,
+      leadTimeSavedDays: p.priority === "fast" ? 7 : 5,
+      selectedPartsKrw,
+      assemblySetupFeeKrw,
+      supplySubtotalKrw,
+      vatKrw,
+      turnkeyTotalKrw,
+    },
     physics: {
       selectedShaftDia: shaftDia,
       gravityMs2: G0,
@@ -547,8 +629,10 @@ export function generateRealCadEngineering(rawText, overrides = {}) {
       safetyFactor: achievedSafetyFactor,
       tauMaxMpa,
       shaftDeflectUm,
+      contactPressureMpa,
+      workpieceMatLabel: wpMatSpec.label,
       springSpecDetail: `선경 d=${sp.wireD}mm · 중심경 Dm=${sp.dm}mm · k=${sp.k}N/mm · 자유장 L0=${freeLenMm}mm (밀착장 ${sp.solidHeight}mm)`,
-      formulaEquation: `F_dyn = ${p.loadKg}kg × 9.81 × (1+${p.accelG}G) = ${dynamicLoadN.toFixed(1)}N | τ_max = ${tauMaxMpa}MPa (Kw=${sp.wahlKw}) | δ_shaft = ${shaftDeflectUm}μm`,
+      formulaEquation: `F_dyn = ${p.loadKg}kg × 9.81 × (1+${p.accelG}G) = ${dynamicLoadN.toFixed(1)}N | τ_max = ${tauMaxMpa}MPa | δ_shaft = ${shaftDeflectUm}μm | σ_contact = ${contactPressureMpa}MPa`,
     },
     costComparison: {
       best: { label: "표준 베스트(MISUMI)", totalKrw: sumCost("best"), lead: "익일~2일" },
@@ -597,10 +681,14 @@ export function computeAutoReinforcedParams(currentDesign) {
   const springBad = (limits.find((l) => l.id === "spring_shear")?.pct || 0) >= 82;
   const shaftBad = (limits.find((l) => l.id === "shaft_deflection")?.pct || 0) >= 82;
   const slipBad = (limits.find((l) => l.id === "slip_saturation")?.pct || 0) >= 82;
+  const surfaceBad = (limits.find((l) => l.id === "workpiece_surface")?.pct || 0) >= 82;
 
   const curD = currentDesign.physics.selectedShaftDia || next.shaftDiameterOverride || 12;
   if (shaftBad || slipBad) {
     next.shaftDia = curD < 16 ? 16 : curD < 20 ? 20 : curD < 25 ? 25 : 32;
+  }
+  if (surfaceBad) {
+    next.padKey = next.padKey === "carbide_jaw" ? "urethane" : "silicone";
   }
   if (springBad) {
     next.springTierBoost = Math.min(3, (next.springTierBoost || 0) + 1);
@@ -799,7 +887,7 @@ function buildPrecisionAssembly({
       {
         id: "BS_SERVO_MOTOR",
         stepName: "08_AC_SERVO_MOTOR_200W",
-        labelKo: "200W 고응답 AC 서보모터 & 브래킷",
+        labelKo: "200W AC 서보모터 & 브래킷",
         material: "AL 다이캐스팅 흑색도장",
         kind: "box",
         x: -stageLen / 2 - 126,
@@ -2659,4 +2747,4 @@ export function generateMakeBlueprintJson() {
     null,
     2
   );
-        }
+                                                            }
