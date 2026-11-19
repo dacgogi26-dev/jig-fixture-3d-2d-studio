@@ -19,10 +19,50 @@ import { EngineeringCadStudioViewer } from "./viewer3d.js";
 // 무단 웹 복제기(REA/HTTrack/SingleFile) 및 비인가 미러 도메인 실행 즉시 차단
 enforceAntiCloneGuard();
 
+// 현업 자연어 프리셋 사전 (HTML 소스 내 data-prompt 평문 노출 원천 제거)
+const PRESET_DICTIONARY = Object.freeze({
+  vblock: {
+    label: "파이프 Ø42 절삭부하 45kgf 대응 90° V-블록",
+    prompt:
+      "원통 서스 파이프 Ø42 CNC 드릴링 치는데 절삭부하 45kgf 걸려도 회전 안 하게 90도 브이블록 상부 가압 지그 짜줘",
+  },
+  chuck: {
+    label: "감속기 하우징 Ø58 · 120° 3조 동심 자동 센터링 척",
+    prompt:
+      "원통 감속기 플랜지 하우징 Ø58 선삭 후 동심도 측정하게 120도 3조 셀프센터링 동심 척 픽스처 55kgf 파지력으로 설계해줘",
+  },
+  stage: {
+    label: "비전 헤드 22kg · 1.2G 볼스크류 듀얼 LM 스테이지",
+    prompt:
+      "비전 검사기 광학 헤드 22kg 올리고 스트로크 64mm 가감속 1.2G 고속 이송하는 볼스크류 듀얼 LM가이드 서보 리니어 스테이지 짜줘",
+  },
+  gripper: {
+    label: "이차전지 8kg · 2G 공압 평행 그리퍼 (당일출고)",
+    prompt:
+      "파우치 배터리 셀 68x24x104 무게 8kg 픽앤플레이스 고속 이송 가감속 2G 걸리는데 찍힘 없이 파지하는 공압 평행척 단납기로 잡아줘",
+  },
+  press: {
+    label: "전장 PCB 포고핀 반력 35kgf 수직 가이드 프레스",
+    prompt:
+      "전장 PCB 130x90 기능검사 지그에서 포고핀 반력 35kgf 수직으로 찍어누르는 트윈 가이드 프레스 픽스처 설계해줘",
+  },
+  frame: {
+    label: "레이저 설비 95kg 미스미 알루미늄 프로파일 정반 가대",
+    prompt:
+      "레이저 마킹 설비 상판 95kg 하중 버티는 미스미 4545 알루미늄 프로파일 정반 프레임 가대 양산 원가절감형으로 구성해줘",
+  },
+});
+
+const MASKED_PROMPT_TEXT =
+  "보안 정책에 의해 비공개 블러 처리된 현장 자연어 설계 지시문입니다 [PRO 등급 이상 열람 가능]";
+
 const els = {
   gateView: document.getElementById("gateView"),
   studioView: document.getElementById("studioView"),
   navAuthArea: document.getElementById("navAuthArea"),
+  nlBlurToggleBtn: document.getElementById("nlBlurToggleBtn"),
+  nlBlurLabel: document.getElementById("nlBlurLabel"),
+  inlineNlBlurBtn: document.getElementById("inlineNlBlurBtn"),
   customerMaskToggleBtn: document.getElementById("customerMaskToggleBtn"),
   customerMaskLabel: document.getElementById("customerMaskLabel"),
   tierBadge: document.getElementById("tierBadge"),
@@ -35,6 +75,7 @@ const els = {
   makeStatusDot: document.getElementById("makeStatusDot"),
   makeStatusText: document.getElementById("makeStatusText"),
   promptInput: document.getElementById("promptInput"),
+  promptBlurHint: document.getElementById("promptBlurHint"),
   micBtn: document.getElementById("micBtn"),
   micBtnLabel: document.getElementById("micBtnLabel"),
   solveBtn: document.getElementById("solveBtn"),
@@ -105,6 +146,8 @@ const els = {
 
 let session = null;
 let simulateCustomerMask = false;
+let nlBlurEnabled = true; // 기본값: 자연어 보안 블러 즉시 활성화
+let rawPromptBuffer = PRESET_DICTIONARY.vblock.prompt;
 let currentDesign = null;
 let viewer = null;
 
@@ -148,6 +191,86 @@ function showBanner(el, text, isErr = false) {
 function getEffectiveTier() {
   if (!session) return "preview";
   return simulateCustomerMask ? "preview" : session.tier;
+}
+
+function isNaturalLanguageLockedByTier() {
+  return (TIER_LEVEL[getEffectiveTier()] || 0) < TIER_LEVEL.pro;
+}
+
+function isEffectiveNlBlurActive() {
+  return isNaturalLanguageLockedByTier() ? true : nlBlurEnabled;
+}
+
+/**
+ * 자연어 프롬프트, 실무 프리셋 문구, 추론 로그, 서브타이틀 블러 및 DOM 텍스트 마스킹 동기화
+ */
+function syncNaturalLanguageBlurState() {
+  const lockedByPreview = isNaturalLanguageLockedByTier();
+  const shouldBlur = isEffectiveNlBlurActive();
+
+  // 1. 프롬프트 입력창 평문 보호 및 블러 처리
+  if (lockedByPreview) {
+    els.promptInput.readOnly = true;
+    els.promptInput.value = MASKED_PROMPT_TEXT;
+    if (els.promptBlurHint) {
+      els.promptBlurHint.textContent = "자연어 설계 지시문 잠김 [PRO 전용]";
+      els.promptBlurHint.classList.remove("hidden");
+    }
+  } else {
+    els.promptInput.readOnly = false;
+    if (document.activeElement !== els.promptInput) {
+      els.promptInput.value = rawPromptBuffer;
+    }
+    if (els.promptBlurHint) {
+      els.promptBlurHint.textContent = "자연어 블러 보호 중 · 클릭 시 입력";
+      els.promptBlurHint.classList.toggle("hidden", !shouldBlur);
+    }
+  }
+
+  // 2. 프리셋 자연어 문구 DOM 텍스트 보호
+  document.querySelectorAll(".preset-row").forEach((row) => {
+    const key = row.dataset.preset;
+    const span = row.querySelector(".preset-nl-text");
+    if (!span || !PRESET_DICTIONARY[key]) return;
+    span.textContent = lockedByPreview
+      ? "현업 공정 자연어 사양 비공개 보호됨 [PRO]"
+      : PRESET_DICTIONARY[key].label;
+  });
+
+  // 3. 모든 .nl-target 요소에 가우시안 블러 클래스 일괄 반영
+  document.querySelectorAll(".nl-target").forEach((node) => {
+    node.classList.toggle("nl-blurred", shouldBlur);
+  });
+
+  // 4. 상단 및 인라인 토글 버튼 상태 업데이트
+  if (els.nlBlurToggleBtn && els.nlBlurLabel) {
+    els.nlBlurToggleBtn.classList.toggle("active-blur-pill", shouldBlur);
+    els.nlBlurLabel.textContent = lockedByPreview
+      ? "자연어 잠김"
+      : shouldBlur
+      ? "자연어 블러 ON"
+      : "자연어 표시 중";
+  }
+  if (els.inlineNlBlurBtn) {
+    els.inlineNlBlurBtn.textContent = lockedByPreview
+      ? "자연어 잠김 [PRO]"
+      : shouldBlur
+      ? "자연어 블러 ON"
+      : "자연어 블러 OFF";
+  }
+}
+
+function toggleNaturalLanguageBlur() {
+  if (isNaturalLanguageLockedByTier()) {
+    showBanner(
+      els.exportMsg,
+      "현재 고객 열람(Preview) 시점에서는 자연어 프롬프트 및 실무 사양 블러를 해제할 수 없습니다.",
+      true
+    );
+    return;
+  }
+  nlBlurEnabled = !nlBlurEnabled;
+  syncNaturalLanguageBlurState();
 }
 
 function getSavedMakeUrl() {
@@ -239,10 +362,7 @@ function enterStudio(authSession) {
     viewer.resize();
   }
 
-  if (!els.promptInput.value.trim()) {
-    els.promptInput.value =
-      "원통 서스 파이프 Ø42 CNC 드릴링 치는데 절삭부하 45kgf 걸려도 회전 안 하게 90도 브이블록 상부 가압 지그 짜줘";
-  }
+  syncNaturalLanguageBlurState();
   executePromptSolve();
 }
 
@@ -301,7 +421,13 @@ function syncControlsFromParams(p) {
 async function executePromptSolve() {
   els.exportMsg.innerHTML = "";
   els.partInspectorPill.classList.add("hidden");
-  const promptText = els.promptInput.value.trim();
+
+  if (!isNaturalLanguageLockedByTier() && els.promptInput.value.trim() && els.promptInput.value !== MASKED_PROMPT_TEXT) {
+    rawPromptBuffer = els.promptInput.value.trim();
+  }
+  els.promptInput.blur(); // 해석 실행 직후 자연어 입력창 포커스를 해제하여 즉시 블러 보호 복귀
+
+  const promptText = rawPromptBuffer;
 
   let makeOverrides = {};
   const makeUrl = getSavedMakeUrl();
@@ -337,7 +463,7 @@ async function executePromptSolve() {
 
 function executeSliderSolve() {
   els.exportMsg.innerHTML = "";
-  currentDesign = generateRealCadEngineering(els.promptInput.value, activeOverrides);
+  currentDesign = generateRealCadEngineering(rawPromptBuffer, activeOverrides);
   renderAllPanels();
 }
 
@@ -345,6 +471,7 @@ function renderAllPanels() {
   if (!currentDesign) return;
   const effTier = getEffectiveTier();
   const view = redactEngineeringResult(currentDesign, effTier);
+  const shouldBlur = isEffectiveNlBlurActive();
 
   els.designTitle.textContent = `${view.titleKo} (${view.dims.w}×${view.dims.d}×${view.dims.h}mm)`;
   els.designSubtitle.textContent = view.subtitleKo;
@@ -406,7 +533,7 @@ function renderAllPanels() {
     els.limitCardsContainer.appendChild(card);
   }
 
-  // AI 수석 설계 추론 로그 렌더링
+  // AI 수석 설계 추론 로그 렌더링 (자연어 문장에 블러 클래스 연동)
   if (els.reasoningList) {
     els.reasoningList.innerHTML = "";
     const steps = view.reasoningSteps || [];
@@ -415,7 +542,7 @@ function renderAllPanels() {
       row.className = "reason-step";
       row.innerHTML = `
         <span class="reason-idx">0${idx + 1}</span>
-        <span>${escapeHtml(stepText)}</span>
+        <span class="nl-target ${shouldBlur ? "nl-blurred" : ""}">${escapeHtml(stepText)}</span>
       `;
       els.reasoningList.appendChild(row);
     });
@@ -471,6 +598,8 @@ function renderAllPanels() {
     });
     els.bomTableBody.appendChild(tr);
   }
+
+  syncNaturalLanguageBlurState();
 }
 
 function updateStrokeTelemetry(ratio01) {
@@ -578,12 +707,16 @@ function handleExportBomCsv() {
 // GitHub 무설정 사양 허브: .formech.json 저장 / 불러오기 / 요약 복사
 function handleExportSpecJson() {
   if (!currentDesign) return;
+  if (isNaturalLanguageLockedByTier()) {
+    showBanner(els.makeMsg, "자연어 설계 사양이 포함된 .JSON 저장은 PRO 이상 등급에서만 허용됩니다.", true);
+    return;
+  }
   const specPayload = {
     schema: "formech-cae-spec-v5",
     savedAt: new Date().toISOString(),
     projectId: currentDesign.projectId,
     titleKo: currentDesign.titleKo,
-    prompt: els.promptInput.value.trim(),
+    prompt: isEffectiveNlBlurActive() ? "[BLUR_PROTECTED]" : rawPromptBuffer,
     overrides: { ...activeOverrides },
   };
   const blob = new Blob([JSON.stringify(specPayload, null, 2)], {
@@ -610,10 +743,10 @@ function handleImportSpecFile(ev) {
       if (!parsed || typeof parsed !== "object" || !parsed.overrides) {
         throw new Error("INVALID_SPEC");
       }
-      if (typeof parsed.prompt === "string" && parsed.prompt.trim()) {
-        els.promptInput.value = parsed.prompt;
+      if (typeof parsed.prompt === "string" && parsed.prompt.trim() && parsed.prompt !== "[BLUR_PROTECTED]") {
+        rawPromptBuffer = parsed.prompt.trim();
       }
-      currentDesign = generateRealCadEngineering(els.promptInput.value, parsed.overrides);
+      currentDesign = generateRealCadEngineering(rawPromptBuffer, parsed.overrides);
       syncControlsFromParams(currentDesign.params);
       renderAllPanels();
       showBanner(els.makeMsg, `사양 복원 완료: ${currentDesign.titleKo}`);
@@ -648,6 +781,10 @@ async function handleCopySpecSummary() {
 
 // 음성 지시 입력
 function toggleVoice() {
+  if (isNaturalLanguageLockedByTier()) {
+    showBanner(els.exportMsg, "고객 열람(Preview) 시점에서는 음성 프롬프트 입력이 제한됩니다.", true);
+    return;
+  }
   const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!SpeechRec) {
     showBanner(els.exportMsg, "음성 인식은 Chrome, Edge 또는 최신 모바일 브라우저에서 지원됩니다.", true);
@@ -672,6 +809,7 @@ function toggleVoice() {
   recognition.onresult = (ev) => {
     let txt = "";
     for (let i = 0; i < ev.results.length; i++) txt += ev.results[i][0].transcript;
+    rawPromptBuffer = txt;
     els.promptInput.value = txt;
   };
   recognition.onerror = () => {
@@ -707,6 +845,19 @@ els.logoutBtn.addEventListener("click", () => {
   els.gateView.classList.remove("hidden");
 });
 
+els.nlBlurToggleBtn?.addEventListener("click", toggleNaturalLanguageBlur);
+els.inlineNlBlurBtn?.addEventListener("click", toggleNaturalLanguageBlur);
+
+els.promptInput.addEventListener("input", () => {
+  if (!isNaturalLanguageLockedByTier() && els.promptInput.value !== MASKED_PROMPT_TEXT) {
+    rawPromptBuffer = els.promptInput.value;
+  }
+});
+
+els.promptInput.addEventListener("blur", () => {
+  syncNaturalLanguageBlurState();
+});
+
 els.customerMaskToggleBtn.addEventListener("click", () => {
   simulateCustomerMask = !simulateCustomerMask;
   updateHeaderAuthState();
@@ -718,7 +869,13 @@ els.micBtn.addEventListener("click", toggleVoice);
 
 document.querySelectorAll(".preset-row").forEach((btn) => {
   btn.addEventListener("click", () => {
-    els.promptInput.value = btn.dataset.prompt || "";
+    const key = btn.dataset.preset;
+    const preset = PRESET_DICTIONARY[key];
+    if (!preset) return;
+    rawPromptBuffer = preset.prompt;
+    if (!isNaturalLanguageLockedByTier()) {
+      els.promptInput.value = preset.prompt;
+    }
     executePromptSolve();
   });
 });
@@ -772,7 +929,7 @@ els.padSelect.addEventListener("change", (e) => {
 els.autoReinforceBtn.addEventListener("click", () => {
   if (!currentDesign) return;
   const upgraded = computeAutoReinforcedParams(currentDesign);
-  currentDesign = generateRealCadEngineering(els.promptInput.value, upgraded);
+  currentDesign = generateRealCadEngineering(rawPromptBuffer, upgraded);
   syncControlsFromParams(currentDesign.params);
   renderAllPanels();
   showBanner(
