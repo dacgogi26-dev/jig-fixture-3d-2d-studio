@@ -131,6 +131,18 @@ export async function verifyInviteCodeClient(rawCode) {
   };
 }
 
+export function createDemoBuyerSession() {
+  const suffix = Math.floor(1000 + Math.random() * 9000);
+  return {
+    userId: `BUYER-${suffix}`,
+    tier: "preview",
+    canExportStep: false,
+    isDemoGuest: true,
+    label: `DEMO PREVIEW · BUYER-${suffix}`,
+    expiresAt: Date.now() + 86_400_000,
+  };
+}
+
 export function savePersistedSession(session) {
   try {
     localStorage.setItem("vault_auth_v4", btoa(encodeURIComponent(JSON.stringify(session))));
@@ -179,18 +191,17 @@ export function redactEngineeringResult(design, effectiveTier) {
   return {
     ...design,
     isRedacted: true,
-    subtitleKo: "보안 정책에 의해 자연어 공정 사양 및 상세 공차가 비공개 블러 처리되었습니다 [PRO 전용]",
     physics: {
       ...design.physics,
-      springSpecDetail: "PRO 등급에서 선경(d)·외경(Dm)·유효권수(Na)·자유장(L0) 공개",
-      formulaEquation: "τ_max = Kw·(8·F·Dm)/(π·d³) ≤ τ_allow  [상세 설계치 보호됨]",
+      springSpecDetail: "PRO 구독 시 선경(d)·외경(Dm)·유효권수(Na)·자유장(L0) 레시피 공개",
+      formulaEquation: "τ_max = Kw·(8·F·Dm)/(π·d³) ≤ τ_allow  [상세 공차·선경 잠김]",
     },
     bom: design.bom.map((item) => ({
       ...item,
-      partNumber: item.isCustomMachined ? "CNC-CUSTOM [치수잠김]" : maskSku(item.partNumber),
+      partNumber: item.isCustomMachined ? "CNC-CUSTOM [도면잠김]" : maskSku(item.partNumber),
       specSummary: item.isCustomMachined
-        ? `${item.material} 정밀 가공품 (공차 비공개)`
-        : "표준 규격 검증 완료 (상세 형번 비공개)",
+        ? `${item.material} 정밀 가공품 (상세 치수·공차 PRO 공개)`
+        : "표준 규격 검증 완료 (발주 형번 PRO 공개)",
       unitPriceKrw: null,
       totalPriceKrw: null,
     })),
@@ -198,11 +209,10 @@ export function redactEngineeringResult(design, effectiveTier) {
       ...design.drawingSpec,
       tolerance: "끼워맞춤 공차(H7/g6) 및 기하공차 비공개 [PRO 전용]",
     },
-    reasoningSteps: [
-      "현장 자연어 사양 해독: 비공개 보안 블러 적용됨 [PRO 전용]",
-      "동역학 평형 계산: 비공개 보안 블러 적용됨 [PRO 전용]",
-      "재료 임계 검증: 상세 축경·끼워맞춤 공차·전단응력 레시피 비공개 [PRO 전용]",
-      "표준품 확정: 미스미 카탈로그 매칭 레시피 비공개 [PRO 전용]",
-    ],
+    reasoningSteps: Array.isArray(design.reasoningSteps)
+      ? design.reasoningSteps.map((step, idx) =>
+          idx === 2 ? "재료 임계 검증: 적합 판정 완료 (상세 축경·끼워맞춤 공차 레시피 PRO 공개)" : step
+        )
+      : [],
   };
-    }
+}
