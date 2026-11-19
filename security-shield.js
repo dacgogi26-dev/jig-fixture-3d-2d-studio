@@ -179,6 +179,7 @@ export function redactEngineeringResult(design, effectiveTier) {
   return {
     ...design,
     isRedacted: true,
+    subtitleKo: "보안 정책에 의해 자연어 공정 사양 및 상세 공차가 비공개 블러 처리되었습니다 [PRO 전용]",
     physics: {
       ...design.physics,
       springSpecDetail: "PRO 등급에서 선경(d)·외경(Dm)·유효권수(Na)·자유장(L0) 공개",
@@ -197,10 +198,11 @@ export function redactEngineeringResult(design, effectiveTier) {
       ...design.drawingSpec,
       tolerance: "끼워맞춤 공차(H7/g6) 및 기하공차 비공개 [PRO 전용]",
     },
-    reasoningSteps: Array.isArray(design.reasoningSteps)
-      ? design.reasoningSteps.map((step, idx) =>
-          idx === 2 ? "재료 임계 검증: 상세 축경·끼워맞춤 공차·전단응력 레시피 비공개 [PRO 전용]" : step
-        )
-      : [],
+    reasoningSteps: [
+      "현장 자연어 사양 해독: 비공개 보안 블러 적용됨 [PRO 전용]",
+      "동역학 평형 계산: 비공개 보안 블러 적용됨 [PRO 전용]",
+      "재료 임계 검증: 상세 축경·끼워맞춤 공차·전단응력 레시피 비공개 [PRO 전용]",
+      "표준품 확정: 미스미 카탈로그 매칭 레시피 비공개 [PRO 전용]",
+    ],
   };
-}
+    }
