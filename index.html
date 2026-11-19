@@ -2,13 +2,14 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#07090e" />
   <meta name="robots" content="noindex, nofollow, noarchive, nosnippet" />
   <meta
     http-equiv="Content-Security-Policy"
     content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://cdn.jsdelivr.net https://*.make.com https://*.eu1.make.com https://*.eu2.make.com https://*.us1.make.com https://*.us2.make.com; worker-src 'self' blob:; object-src 'none'; base-uri 'self';"
   />
-  <title>FORMECH CAE | 현업 정밀 치공구 3D 설계 & 재료역학 임계 검증 스튜디오</title>
+  <title>FORMECH CAE STUDIO V5 | 정밀 치공구·자동화 기구 3D 설계 & 고체역학 임계 검증</title>
   <link rel="stylesheet" href="./styles.css" />
   <script type="importmap">
     {
@@ -24,63 +25,90 @@
   <header class="topbar">
     <div class="brand-group">
       <div class="brand-mark" aria-hidden="true">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1">
           <polygon points="12 2 21 7 21 17 12 22 3 17 3 7 12 2"></polygon>
           <line x1="12" y1="22" x2="12" y2="12"></line>
           <polyline points="21 7 12 12 3 7"></polyline>
         </svg>
       </div>
-      <span class="brand-name">FORMECH CAE STUDIO</span>
-      <span class="brand-tag">STEP AP214 · MISUMI · SOLID MECHANICS</span>
+      <div class="brand-text-wrap">
+        <span class="brand-name">FORMECH CAE</span>
+        <span class="brand-version num">V5.0</span>
+      </div>
+      <span class="brand-tag hide-mobile">ISO-10303 AP214 · MISUMI · SOLID MECHANICS</span>
     </div>
 
     <div id="navAuthArea" class="topbar-right hidden">
-      <button id="customerMaskToggleBtn" class="btn hidden" type="button">
-        고객 열람 시점 (형번 마스킹)
+      <button id="customerMaskToggleBtn" class="btn btn-ghost hidden" type="button" title="고객사 열람 시점 마스킹 시뮬레이션">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+          <circle cx="12" cy="12" r="3"></circle>
+        </svg>
+        <span id="customerMaskLabel">고객 시점 마스킹</span>
       </button>
       <span id="tierBadge" class="tier-chip tier-admin">ADMIN</span>
-      <span id="userLabel" class="num" style="font-size: 11.5px; color: #64748b;"></span>
-      <button id="logoutBtn" class="btn" type="button">잠금</button>
+      <span id="userLabel" class="num hide-mobile" style="font-size: 11px; color: #64748b;"></span>
+      <button id="logoutBtn" class="btn btn-ghost" type="button">잠금</button>
     </div>
   </header>
 
-  <!-- 1단계: 제로트러스트 비공개 입장 화면 -->
+  <!-- 1단계: 제로트러스트 비공개 볼트 인증 화면 -->
   <section id="gateView" class="gate-screen">
     <div class="gate-card">
-      <div class="gate-eyebrow">PRIVATE ENGINEERING VAULT</div>
-      <h2>정밀 치공구 AI 설계 스튜디오 인증</h2>
+      <div class="gate-badge-row">
+        <span class="gate-eyebrow">ZERO-TRUST CAD VAULT</span>
+        <span class="status-pill"><span class="pulse-dot"></span>ANTI-CLONE ACTIVE</span>
+      </div>
+      <h2>정밀 치공구·자동화 기구 AI 설계 스튜디오</h2>
       <p>
-        무단 웹 복제(REA/HTTrack) 차단 도메인 락 및 등급별 설계 자산 보호가 활성화되어 있습니다. 승인된 초대코드로 입장하면 24시간 동안 세션이 유지됩니다.
+        무단 웹 복제(REA·HTTrack·SingleFile) 차단 도메인 락 및 등급별 영업비밀 마스킹이 적용되어 있습니다. 승인된 엔지니어 초대코드로 입장하면 24시간 세션이 유지됩니다.
       </p>
+      <div class="gate-features">
+        <div class="gate-feat-item">
+          <span class="num feat-k">8종</span>
+          <span class="feat-v">표준 치공구·스테이지</span>
+        </div>
+        <div class="gate-feat-item">
+          <span class="num feat-k">AP214</span>
+          <span class="feat-v">전 상용 CAD 호환 .STEP</span>
+        </div>
+        <div class="gate-feat-item">
+          <span class="num feat-k">MISUMI</span>
+          <span class="feat-v">3단계 납기·원가 비교</span>
+        </div>
+      </div>
       <div class="gate-row">
         <input
           id="inviteInput"
           type="password"
-          placeholder="Access Invite Code"
+          placeholder="초대코드 입력 (Access Code)"
           autocomplete="off"
         />
-        <button id="loginBtn" class="btn btn-primary" type="button" style="height: 38px; padding: 0 18px;">
-          인증 입장
+        <button id="loginBtn" class="btn btn-primary gate-submit-btn" type="button">
+          볼트 인증 입장
         </button>
       </div>
       <div id="gateMsg" style="margin-top: 12px;"></div>
     </div>
   </section>
 
-  <!-- 2단계: 3단 풀스크린 엔지니어링 스튜디오 -->
-  <main id="studioView" class="studio-shell hidden">
-    <!-- 좌측: 현업 실무 프롬프트 & 기구학/역학 파라미터 컨트롤 -->
-    <aside class="sidebar-col">
-      <div>
+  <!-- 2단계: 데스크톱 3단 워크스테이션 & 모바일 네이티브 앱 셸 -->
+  <main id="studioView" class="studio-shell hidden" data-mobile-tab="design">
+    <!-- 좌측 패널: 현장 요구사양 입력 & 8종 기구 아키텍처 & 역학 슬라이더 -->
+    <aside class="sidebar-col" id="panelDesign">
+      <div class="panel-group">
         <div class="section-label">
-          <span>현장 요구사양 입력 (음성·텍스트)</span>
-          <span id="makeStatusDot" style="font-size: 10.5px; color: #64748b;">내장 CAE 엔진</span>
+          <span>현장 요구사양 지시 (음성·실무어)</span>
+          <span id="makeStatusDot" class="engine-badge">
+            <span class="pulse-dot"></span>
+            <span id="makeStatusText">내장 CAE 코어</span>
+          </span>
         </div>
 
         <div class="prompt-composer">
           <textarea
             id="promptInput"
-            placeholder="현업 용어로 편하게 지시하세요. 예: 서스 원통 파이프 Ø42 CNC 드릴링 치는데 절삭부하 45kgf 걸려도 안 돌아가게 브이블록 클램프 지그 짜줘"
+            placeholder="현업 용어로 편하게 말씀하거나 입력하세요. 예: 서스 원통 파이프 Ø42 CNC 드릴링 치는데 절삭부하 45kgf 걸려도 안 돌아가게 90도 브이블록 지그 짜줘"
           ></textarea>
           <div class="composer-actions">
             <button id="micBtn" class="btn btn-mic" type="button">
@@ -89,82 +117,127 @@
                 <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
                 <line x1="12" y1="19" x2="12" y2="23"></line>
               </svg>
-              <span>음성 지시</span>
+              <span id="micBtnLabel">음성 지시</span>
             </button>
             <button id="solveBtn" class="btn btn-primary" type="button">
-              역학 해석 및 3D 생성
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+              </svg>
+              <span>역학 해석 · 3D 합성</span>
             </button>
           </div>
         </div>
       </div>
 
-      <div>
+      <div class="panel-group">
+        <div class="section-label">
+          <span>8대 표준 치공구·자동화 아키텍처</span>
+          <span class="num" style="font-size: 10px; color: var(--text-3);">8-MECH</span>
+        </div>
+        <div class="mech-selector">
+          <button class="mech-pill" type="button" data-mech="vblock_clamp">
+            <span class="mech-code num">01</span>
+            <span class="mech-name">90° V-블록</span>
+          </button>
+          <button class="mech-pill" type="button" data-mech="parallel_gripper">
+            <span class="mech-code num">02</span>
+            <span class="mech-name">평행 그리퍼</span>
+          </button>
+          <button class="mech-pill" type="button" data-mech="three_jaw_chuck">
+            <span class="mech-code num">03</span>
+            <span class="mech-name">3조 동심 척</span>
+          </button>
+          <button class="mech-pill" type="button" data-mech="ballscrew_stage">
+            <span class="mech-code num">04</span>
+            <span class="mech-name">볼스크류 이송</span>
+          </button>
+          <button class="mech-pill" type="button" data-mech="vertical_press">
+            <span class="mech-code num">05</span>
+            <span class="mech-name">수직 프레스</span>
+          </button>
+          <button class="mech-pill" type="button" data-mech="toggle_clamp">
+            <span class="mech-code num">06</span>
+            <span class="mech-name">사점 토글</span>
+          </button>
+          <button class="mech-pill" type="button" data-mech="indexing_plunger">
+            <span class="mech-code num">07</span>
+            <span class="mech-name">인덱싱 핀</span>
+          </button>
+          <button class="mech-pill" type="button" data-mech="extrusion_frame">
+            <span class="mech-code num">08</span>
+            <span class="mech-name">프로파일 가대</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="panel-group">
         <div class="section-label"><span>현업 생산기술 실전 프리셋</span></div>
         <div class="preset-stack">
           <button class="preset-row" type="button" data-prompt="원통 서스 파이프 Ø42 CNC 드릴링 치는데 절삭부하 45kgf 걸려도 회전 안 하게 90도 브이블록 상부 가압 지그 짜줘">
-            원통 파이프 Ø42 절삭부하 45kgf 대응 90° V-블록 지그
+            <span class="preset-tag">CNC</span>
+            <span>파이프 Ø42 절삭부하 45kgf 대응 90° V-블록</span>
+          </button>
+          <button class="preset-row" type="button" data-prompt="원통 감속기 플랜지 하우징 Ø58 선삭 후 동심도 측정하게 120도 3조 셀프센터링 동심 척 픽스처 55kgf 파지력으로 설계해줘">
+            <span class="preset-tag">3-JAW</span>
+            <span>감속기 하우징 Ø58 · 120° 3조 동심 자동 센터링 척</span>
+          </button>
+          <button class="preset-row" type="button" data-prompt="비전 검사기 광학 헤드 22kg 올리고 스트로크 64mm 가감속 1.2G 고속 이송하는 볼스크류 듀얼 LM가이드 서보 리니어 스테이지 짜줘">
+            <span class="preset-tag">SERVO</span>
+            <span>비전 헤드 22kg · 1.2G 볼스크류 듀얼 LM 스테이지</span>
           </button>
           <button class="preset-row" type="button" data-prompt="파우치 배터리 셀 68x24x104 무게 8kg 픽앤플레이스 고속 이송 가감속 2G 걸리는데 찍힘 없이 파지하는 공압 평행척 단납기로 잡아줘">
-            이차전지 8kg · 가감속 2G 픽앤플레이스 공압 평행 그리퍼
+            <span class="preset-tag">P&amp;P</span>
+            <span>이차전지 8kg · 2G 공압 평행 그리퍼 (당일출고)</span>
           </button>
           <button class="preset-row" type="button" data-prompt="전장 PCB 130x90 기능검사 지그에서 포고핀 반력 35kgf 수직으로 찍어누르는 트윈 가이드 프레스 픽스처 설계해줘">
-            전장 PCB 포고핀 반력 35kgf 수직 가이드 프레스 픽스처
+            <span class="preset-tag">ICT</span>
+            <span>전장 PCB 포고핀 반력 35kgf 수직 가이드 프레스</span>
           </button>
-          <button class="preset-row" type="button" data-prompt="용접 가공물 진동 부하 65kgf 걸려도 절대 안 풀리는 4.8배력 사점 원터치 토글 클램프 지그 양산 원가절감형으로 구성해줘">
-            용접 진동 65kgf 풀림방지 사점 배력 토글 클램프 (C-Value)
+          <button class="preset-row" type="button" data-prompt="레이저 마킹 설비 상판 95kg 하중 버티는 미스미 4545 알루미늄 프로파일 정반 프레임 가대 양산 원가절감형으로 구성해줘">
+            <span class="preset-tag">FRAME</span>
+            <span>레이저 설비 95kg 미스미 알루미늄 프로파일 정반 가대</span>
           </button>
         </div>
       </div>
 
-      <div>
-        <div class="section-label"><span>치공구 메커니즘 아키텍처</span></div>
-        <div class="mech-selector">
-          <button class="mech-pill active" type="button" data-mech="parallel_gripper">평행 그리퍼</button>
-          <button class="mech-pill" type="button" data-mech="vblock_clamp">90° V-블록</button>
-          <button class="mech-pill" type="button" data-mech="vertical_press">수직 프레스</button>
-          <button class="mech-pill" type="button" data-mech="toggle_clamp">사점 토글</button>
-          <button class="mech-pill" type="button" data-mech="indexing_plunger">인덱싱 핀</button>
-        </div>
-      </div>
-
-      <div class="control-block">
-        <div class="section-label"><span>물리 하중 & 기구 설계 변수</span></div>
+      <div class="panel-group control-block">
+        <div class="section-label"><span>물리 하중 · 기구학 정밀 변수</span></div>
 
         <div class="slider-item">
           <div class="slider-head">
             <span>설계 정하중 / 가공 반력</span>
-            <span id="loadValLabel" class="slider-readout">10 kgf</span>
+            <span id="loadValLabel" class="slider-readout">45 kgf</span>
           </div>
-          <input id="loadSlider" type="range" min="1" max="150" step="1" value="10" />
+          <input id="loadSlider" type="range" min="1" max="150" step="1" value="45" />
         </div>
 
         <div class="slider-item">
           <div class="slider-head">
             <span>이송 가감속 / 충격 관성 (G-Force)</span>
-            <span id="accelValLabel" class="slider-readout">0.2 G</span>
+            <span id="accelValLabel" class="slider-readout">0.5 G</span>
           </div>
-          <input id="accelSlider" type="range" min="0" max="4.0" step="0.1" value="0.2" />
+          <input id="accelSlider" type="range" min="0" max="4.0" step="0.1" value="0.5" />
         </div>
 
         <div class="slider-item">
           <div class="slider-head">
             <span>피가공물 기준 폭 / 외경 (Ø·W)</span>
-            <span id="widthValLabel" class="slider-readout">55 mm</span>
+            <span id="widthValLabel" class="slider-readout">42 mm</span>
           </div>
-          <input id="widthSlider" type="range" min="18" max="160" step="1" value="55" />
+          <input id="widthSlider" type="range" min="18" max="160" step="1" value="42" />
         </div>
 
         <div class="slider-item">
           <div class="slider-head">
             <span>요구 작동 스트로크 (Stroke)</span>
-            <span id="strokeValLabel" class="slider-readout">28 mm</span>
+            <span id="strokeValLabel" class="slider-readout">24 mm</span>
           </div>
-          <input id="strokeSlider" type="range" min="12" max="80" step="2" value="28" />
+          <input id="strokeSlider" type="range" min="12" max="80" step="2" value="24" />
         </div>
 
         <div class="select-grid">
           <div>
-            <div class="slider-head" style="margin-bottom: 4px;"><span>구동 에너지원</span></div>
+            <div class="slider-head" style="margin-bottom: 5px;"><span>구동 에너지원</span></div>
             <select id="actuationSelect" class="studio-select">
               <option value="spring">코일 스프링 예압</option>
               <option value="pneumatic">공장 공압 (0.5MPa)</option>
@@ -172,7 +245,7 @@
             </select>
           </div>
           <div>
-            <div class="slider-head" style="margin-bottom: 4px;"><span>접촉 마찰재</span></div>
+            <div class="slider-head" style="margin-bottom: 5px;"><span>접촉 마찰재</span></div>
             <select id="padSelect" class="studio-select">
               <option value="urethane">우레탄 A90 (μ=0.48)</option>
               <option value="silicone">실리콘 보호 (μ=0.55)</option>
@@ -183,39 +256,41 @@
       </div>
     </aside>
 
-    <!-- 중앙: 풀블리드 Three.js PBR 3D 뷰포트 & 모션 독 -->
+    <!-- 중앙 스테이지: Three.js PBR 3D 어셈블리 & KS 제3각법 도면 -->
     <section class="viewport-stage">
       <div id="viewportContainer">
         <canvas id="blueprintCanvas"></canvas>
 
-        <!-- 상단 플로팅 타이틀 & 뷰 전환 독 -->
+        <!-- 상단 플로팅 타이틀 & 카메라 독 -->
         <div class="stage-overlay-top">
           <div class="glass-box title-hud">
-            <h1 id="designTitle">정밀 평행 그리퍼 어셈블리</h1>
-            <p id="designSubtitle">부품을 클릭하면 재질·규격 인스펙터가 표시됩니다.</p>
+            <h1 id="designTitle">정밀 브이블록 클램프 어셈블리</h1>
+            <p id="designSubtitle">부품을 클릭하거나 터치하면 재질·규격 인스펙터가 표시됩니다.</p>
           </div>
 
           <div class="glass-box cam-dock">
-            <button class="dock-btn active" type="button" data-view="3d">3D CAD</button>
-            <button class="dock-btn" type="button" data-view="2d">2D 제3각법</button>
-            <span style="width: 1px; background: rgba(255,255,255,0.1); margin: 4px 2px;"></span>
-            <button class="dock-btn" type="button" data-cam="iso">ISO</button>
-            <button class="dock-btn" type="button" data-cam="front">FRONT</button>
-            <button class="dock-btn" type="button" data-cam="top">TOP</button>
-            <button class="dock-btn" type="button" data-cam="right">RIGHT</button>
+            <button class="dock-btn active" type="button" data-view="3d">3D</button>
+            <button class="dock-btn" type="button" data-view="2d">2D 도면</button>
+            <button id="wireframeBtn" class="dock-btn" type="button" title="와이어프레임 엣지 투시">WIRE</button>
+            <span class="dock-sep hide-mobile"></span>
+            <button class="dock-btn hide-mobile" type="button" data-cam="iso">ISO</button>
+            <button class="dock-btn hide-mobile" type="button" data-cam="front">FRONT</button>
+            <button class="dock-btn hide-mobile" type="button" data-cam="top">TOP</button>
+            <button class="dock-btn hide-mobile" type="button" data-cam="right">RIGHT</button>
+            <button id="mobileExpandBtn" class="dock-btn show-mobile-inline" type="button">화면 확대</button>
           </div>
         </div>
 
-        <!-- 클릭된 3D 부품 실시간 스펙 배지 -->
+        <!-- 클릭된 3D 부품 실시간 인스펙터 배지 -->
         <div id="partInspectorPill" class="glass-box part-inspector-pill hidden"></div>
 
         <div id="watermarkOverlay" class="watermark-tag"></div>
 
-        <!-- 하단 플로팅 스트로크·분해도 제어 독 -->
+        <!-- 하단 플로팅 모션 & 분해도 컨트롤 독 -->
         <div class="glass-box stage-overlay-bottom">
           <div class="slider-item">
             <div class="slider-head">
-              <span>작동 스트로크 검증 (Closed 0% ↔ Open 100%)</span>
+              <span>작동 스트로크 검증</span>
               <span id="simStrokeLabel" class="slider-readout" style="color: #38bdf8;">0% · 0 N</span>
             </div>
             <input id="simStrokeSlider" type="range" min="0" max="100" value="0" />
@@ -223,66 +298,74 @@
 
           <div class="slider-item">
             <div class="slider-head">
-              <span>어셈블리 분해도 (Explode)</span>
+              <span>어셈블리 분해도</span>
               <span id="explodeLabel" class="slider-readout">0%</span>
             </div>
             <input id="explodeSlider" type="range" min="0" max="100" value="0" />
           </div>
 
-          <div style="display: flex; gap: 6px;">
-            <button id="autoCycleBtn" class="btn" type="button">자동 왕복</button>
-            <button id="workpieceToggleBtn" class="btn" type="button">모재 표시</button>
+          <div class="motion-btns">
+            <button id="autoCycleBtn" class="btn btn-compact" type="button">자동 왕복</button>
+            <button id="workpieceToggleBtn" class="btn btn-compact" type="button">모재 표시</button>
+            <button id="resetCamBtn" class="btn btn-compact show-mobile-inline" type="button">정렬</button>
           </div>
         </div>
       </div>
     </section>
 
-    <!-- 우측: 3탭 엔지니어링 인스펙터 (물리 임계치 / 미스미 BOM / Make 연동) -->
-    <aside class="inspector-col">
+    <!-- 우측 인스펙터: 역학 임계 해석 / 미스미 BOM / GitHub & Make 자동화 허브 -->
+    <aside class="inspector-col" id="panelInspector">
       <div class="segmented-tabs">
         <button class="seg-tab active" type="button" data-tab="physics">물리·임계 해석</button>
         <button class="seg-tab" type="button" data-tab="bom">미스미 BOM·원가</button>
-        <button class="seg-tab" type="button" data-tab="make">Make AI 연동</button>
+        <button class="seg-tab" type="button" data-tab="make">자동화·사양 허브</button>
       </div>
 
-      <!-- 탭 1: 지구 물리·재료역학 임계선 분석 -->
+      <!-- 탭 1: 고체역학 임계선 & AI 추론 근거 -->
       <div id="tabPhysics" class="inspector-body">
         <div class="kpi-grid">
           <div class="kpi-box">
             <div class="kpi-title">관성 포함 동적 부하</div>
-            <div id="kpiDynLoad" class="kpi-val">117.7 N</div>
+            <div id="kpiDynLoad" class="kpi-val">662.0 N</div>
           </div>
           <div class="kpi-box">
             <div class="kpi-title">설계 클램핑 출력</div>
-            <div id="kpiActForce" class="kpi-val" style="color: #38bdf8;">252.0 N</div>
+            <div id="kpiActForce" class="kpi-val" style="color: #38bdf8;">1,420.0 N</div>
           </div>
           <div class="kpi-box">
             <div class="kpi-title">최대 슬립 저항 하중</div>
-            <div id="kpiMaxHold" class="kpi-val" style="color: #10b981;">24.6 kgf</div>
+            <div id="kpiMaxHold" class="kpi-val" style="color: #10b981;">92.4 kgf</div>
           </div>
           <div class="kpi-box">
             <div class="kpi-title">실효 안전율 (목표 ≥ 2.0)</div>
-            <div id="kpiSafety" class="kpi-val">2.05</div>
+            <div id="kpiSafety" class="kpi-val">2.10x</div>
           </div>
         </div>
 
-        <div id="reinforceAlertBox" class="hidden" style="display: flex; flex-direction: column; gap: 8px;">
+        <div id="reinforceAlertBox" class="reinforce-wrap hidden">
           <div id="reinforceWarningText" class="msg-banner msg-err"></div>
           <button id="autoReinforceBtn" class="btn btn-reinforce" type="button">
-            AI 물리 임계치 자동 보강 설계 적용 (샤프트·스프링·구동원 승격)
+            AI 물리 임계치 자동 보강 적용 (축경·스프링·배력 승격)
           </button>
         </div>
 
         <div>
           <div class="section-label">
-            <span>재료 항복 · 처짐 · 포화 임계선 (Critical Limits)</span>
-            <span class="num" style="font-size: 10.5px;">g = 9.807 m/s²</span>
+            <span>지구 재료 항복 · 처짐 · 포화 임계선</span>
+            <span class="num" style="font-size: 10px; color: var(--text-3);">g = 9.807 m/s²</span>
           </div>
           <div id="limitCardsContainer" class="limit-list"></div>
         </div>
 
         <div>
-          <div class="section-label"><span>지배 방정식 및 스프링 물성</span></div>
+          <div class="section-label">
+            <span>AI 수석 설계 추론 로그 (Copilot Trace)</span>
+          </div>
+          <div id="reasoningList" class="reasoning-card"></div>
+        </div>
+
+        <div>
+          <div class="section-label"><span>지배 방정식 및 선정 스프링 레시피</span></div>
           <div id="equationBox" class="equation-box"></div>
         </div>
       </div>
@@ -307,8 +390,8 @@
           </div>
         </div>
 
-        <div style="font-size: 11px; color: #64748b;">
-          행 클릭 시 중앙 3D 뷰포트에서 해당 부품 위치가 하이라이트됩니다.
+        <div class="helper-caption">
+          행 클릭 또는 터치 시 3D 뷰포트에서 해당 부품이 즉시 하이라이트됩니다.
         </div>
 
         <div class="bom-wrap">
@@ -325,42 +408,62 @@
           </table>
         </div>
 
-        <button id="downloadBomBtn" class="btn" type="button" style="width: 100%; height: 36px;">
+        <button id="downloadBomBtn" class="btn" type="button" style="width: 100%; height: 38px;">
           구매 발주용 표준 BOM 리스트 (.CSV) 추출
         </button>
       </div>
 
-      <!-- 탭 3: Make.com 실시간 웹훅 & 블루프린트 연동 -->
+      <!-- 탭 3: 무설정 GitHub 설계 사양 허브 & Make.com 연동 -->
       <div id="tabMake" class="inspector-body hidden">
-        <div class="equation-box" style="color: #cbd5e1;">
-          <strong>Make.com AI 오케스트레이션 브리지</strong><br />
-          Make의 Custom Webhook URL을 등록하면 현장 음성/텍스트 입력 시 Make 시나리오(Whisper STT → GPT/Claude 수석 설계자 → 미스미 파라미터)를 거쳐 실시간 3D 모델에 즉시 반영됩니다.
-        </div>
-
-        <div class="slider-item">
-          <div class="slider-head"><span>Make Custom Webhook URL</span></div>
-          <input
-            id="makeWebhookInput"
-            type="url"
-            placeholder="https://hook.eu2.make.com/..."
-            style="height: 36px; padding: 0 10px; border-radius: 7px; border: 1px solid rgba(255,255,255,0.12); background: #090b10; color: #fff; font-size: 12px;"
-          />
-        </div>
-
-        <div style="display: flex; gap: 8px;">
-          <button id="saveMakeUrlBtn" class="btn btn-primary" type="button" style="flex: 1;">
-            웹훅 연결 저장 및 테스트
-          </button>
-          <button id="clearMakeUrlBtn" class="btn" type="button">해제</button>
-        </div>
-
-        <div style="border-top: 1px solid rgba(255,255,255,0.08); padding-top: 12px;">
-          <div class="section-label"><span>Make 시나리오 자동 구축 파일</span></div>
-          <p style="font-size: 11.5px; color: #94a3b8; margin-bottom: 10px;">
-            Make.com에서 새 시나리오 생성 후 하단 <code>Import Blueprint</code>로 아래 JSON 파일을 올리면 즉시 현업 치공구 파서 파이프라인이 완성됩니다.
+        <div class="hub-card">
+          <div class="hub-card-head">
+            <span class="hub-badge">ZERO-SETUP READY</span>
+            <span class="num" style="font-size: 10.5px; color: #10b981;">GitHub 내장 엔진 활성</span>
+          </div>
+          <p class="hub-desc">
+            별도 외부 계정 설정 없이도 내장 고체역학·미스미 솔버가 100% 독립 작동합니다. 현재 설계 사양을 <code>.formech.json</code> 프로젝트 파일로 저장하거나 동료 엔지니어와 즉시 공유할 수 있습니다.
           </p>
-          <button id="downloadMakeBpBtn" class="btn" type="button" style="width: 100%; height: 36px;">
-            Make.com 연동 블루프린트 (.JSON) 다운로드
+          <div class="hub-btn-grid">
+            <button id="exportSpecJsonBtn" class="btn btn-primary" type="button">
+              설계 사양 (.JSON) 저장
+            </button>
+            <button id="importSpecJsonBtn" class="btn" type="button">
+              사양 파일 불러오기
+            </button>
+            <input id="importSpecFileInput" type="file" accept=".json,application/json" class="hidden" />
+          </div>
+          <button id="copySpecSummaryBtn" class="btn" type="button" style="width: 100%; margin-top: 6px;">
+            설계 검토 요약서 클립보드 복사 (메신저·이슈 공유용)
+          </button>
+        </div>
+
+        <div class="hub-card">
+          <div class="section-label" style="margin-bottom: 6px;">
+            <span>Make.com 외부 LLM 오케스트레이션 (선택 연동)</span>
+          </div>
+          <p class="hub-desc">
+            GitHub 저장소에 함께 배포된 <code>make-blueprint.json</code>을 Make.com의 <strong>Import Blueprint</strong>에 올린 뒤 발급된 Webhook URL을 연결하면, 외부 GPT-4o/Claude 파이프라인과 실시간 연동됩니다.
+          </p>
+
+          <div class="slider-item" style="margin-top: 8px;">
+            <div class="slider-head"><span>Make Custom Webhook URL</span></div>
+            <input
+              id="makeWebhookInput"
+              class="studio-text-input"
+              type="url"
+              placeholder="https://hook.eu2.make.com/..."
+            />
+          </div>
+
+          <div style="display: flex; gap: 6px; margin-top: 8px;">
+            <button id="saveMakeUrlBtn" class="btn btn-primary" type="button" style="flex: 1;">
+              웹훅 저장 · 연결
+            </button>
+            <button id="clearMakeUrlBtn" class="btn" type="button">내장 모드로 해제</button>
+          </div>
+
+          <button id="downloadMakeBpBtn" class="btn" type="button" style="width: 100%; margin-top: 8px;">
+            GitHub 내장 Make 시나리오 블루프린트 (.JSON) 받기
           </button>
         </div>
 
@@ -375,11 +478,51 @@
             <polyline points="7 10 12 15 17 10"></polyline>
             <line x1="12" y1="15" x2="12" y2="3"></line>
           </svg>
-          <span>정밀 3D .STEP 추출 (AP214 전 CAD 호환)</span>
+          <span>정밀 3D .STEP 추출 (ISO AP214 전 CAD 호환)</span>
         </button>
         <div id="exportMsg"></div>
       </div>
     </aside>
+
+    <!-- 모바일 전용 하단 네이티브 탭 내비게이션 바 -->
+    <nav class="mobile-bottom-nav" aria-label="모바일 워크스페이스 전환">
+      <button class="m-nav-btn active" type="button" data-mnav="design">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9">
+          <line x1="4" y1="21" x2="4" y2="14"></line>
+          <line x1="4" y1="10" x2="4" y2="3"></line>
+          <line x1="12" y1="21" x2="12" y2="12"></line>
+          <line x1="12" y1="8" x2="12" y2="3"></line>
+          <line x1="20" y1="21" x2="20" y2="16"></line>
+          <line x1="20" y1="12" x2="20" y2="3"></line>
+          <line x1="1" y1="14" x2="7" y2="14"></line>
+          <line x1="9" y1="8" x2="15" y2="8"></line>
+          <line x1="17" y1="16" x2="23" y2="16"></line>
+        </svg>
+        <span>설계 지시</span>
+      </button>
+      <button class="m-nav-btn" type="button" data-mnav="physics">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9">
+          <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+        </svg>
+        <span>역학 임계</span>
+      </button>
+      <button class="m-nav-btn" type="button" data-mnav="bom">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9">
+          <rect x="3" y="3" width="18" height="18" rx="2"></rect>
+          <line x1="3" y1="9" x2="21" y2="9"></line>
+          <line x1="9" y1="21" x2="9" y2="9"></line>
+        </svg>
+        <span>미스미 BOM</span>
+      </button>
+      <button class="m-nav-btn" type="button" data-mnav="hub">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+          <polyline points="7 10 12 15 17 10"></polyline>
+          <line x1="12" y1="15" x2="12" y2="3"></line>
+        </svg>
+        <span>STEP·자동화</span>
+      </button>
+    </nav>
   </main>
 
   <script type="module" src="./app.js"></script>
