@@ -1,0 +1,50 @@
+{
+  "name": "FORMECH CAE V5 — 8-Mechanism Shop-Floor AI & MISUMI Pipeline",
+  "flow": [
+    {
+      "id": 1,
+      "module": "gateway:CustomWebHook",
+      "version": 1,
+      "parameters": {
+        "name": "FORMECH Studio Field Prompt Receiver"
+      },
+      "mapper": {}
+    },
+    {
+      "id": 2,
+      "module": "openai-gpt-3:CreateCompletion",
+      "version": 1,
+      "parameters": {},
+      "mapper": {
+        "model": "gpt-4o",
+        "response_format": "json_object",
+        "messages": [
+          {
+            "role": "system",
+            "content": "당신은 20년 경력의 기계설계·자동화 치공구 수석 엔지니어입니다. 현장 작업자의 요청에서 mechanismType(parallel_gripper|vblock_clamp|vertical_press|toggle_clamp|indexing_plunger|ballscrew_stage|three_jaw_chuck|extrusion_frame), loadKg, accelG, objWidthMm, strokeMm, padKey(urethane|silicone|carbide_jaw), actuation(spring|pneumatic|toggle), priority(best|fast|cheap), engineerNote 필드를 가진 JSON만 반환하세요."
+          },
+          {
+            "role": "user",
+            "content": "{{1.prompt}}"
+          }
+        ]
+      }
+    },
+    {
+      "id": 3,
+      "module": "gateway:WebhookRespond",
+      "version": 1,
+      "parameters": {},
+      "mapper": {
+        "status": "200",
+        "headers": [
+          {
+            "name": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": "{{2.choices[].message.content}}"
+      }
+    }
+  ]
+}
