@@ -25,12 +25,14 @@ export class EngineeringCadStudioViewer {
     this.autoCycle = false;
     this.wireframe = false;
     this.showWorkpiece = true;
+    this.showEnvelope = false;
     this.cycleClock = 0;
 
     this.partMeshes = [];
     this.pickableMeshes = [];
     this.selectedPartId = null;
     this.workpieceGroup = null;
+    this.envelopeGroup = null;
     this.raycaster = new THREE.Raycaster();
     this.pointerDownPos = { x: 0, y: 0 };
 
@@ -198,6 +200,7 @@ export class EngineeringCadStudioViewer {
     this.partMeshes = [];
     this.pickableMeshes = [];
     this.workpieceGroup = null;
+    this.envelopeGroup = null;
   }
 
   buildHelicalSpringGeometry({ radius, wireDia, turns, length, axis }) {
@@ -363,6 +366,21 @@ export class EngineeringCadStudioViewer {
       this.workpieceGroup = wpGroup;
     }
 
+    // 설비 장착 간섭 확인용 3D 외곽 엔벨로프 박스 (L×W×H)
+    if (design.dims) {
+      const { w, d, h } = design.dims;
+      const envGeo = new THREE.BoxGeometry(w, d, h);
+      envGeo.translate(0, 0, h / 2);
+      const envEdges = new THREE.LineSegments(
+        new THREE.EdgesGeometry(envGeo),
+        new THREE.LineBasicMaterial({ color: 0x10b981, transparent: true, opacity: 0.65 })
+      );
+      envGeo.dispose();
+      envEdges.visible = this.showEnvelope;
+      this.cadRoot.add(envEdges);
+      this.envelopeGroup = envEdges;
+    }
+
     this.applyKinematicsAndExplode();
     this.fitCameraToDesign();
     if (this.mode === "2d") this.render2DBlueprint();
@@ -419,6 +437,52 @@ export class EngineeringCadStudioViewer {
         mesh.material.wireframe = this.wireframe;
       }
     }
+  }
+
+  setEnvelopeVisible(visible) {
+    this.showEnvelope = Boolean(visible);
+    if (this.envelopeGroup) this.envelopeGroup.visible = this.showEnvelope;
+  }
+
+  captureProposalSnapshotDataUrl({ titleText = "", metaText = "" } = {}) {
+    const srcCanvas = this.mode === "2d" ? this.bpCanvas : this.renderer.domElement;
+    if (this.mode === "3d") {
+      this.controls.update();
+      this.renderer.render(this.scene, this.camera);
+    } else {
+      this.render2DBlueprint();
+    }
+
+    const W = srcCanvas.width;
+    const H = srcCanvas.height;
+    const footerH = Math.max(54, Math.round(H * 0.085));
+    const out = document.createElement("canvas");
+    out.width = W;
+    out.height = H + footerH;
+    const ctx = out.getContext("2d");
+
+    ctx.fillStyle = "#07090e";
+    ctx.fillRect(0, 0, out.width, out.height);
+    ctx.drawImage(srcCanvas, 0, 0);
+
+    ctx.fillStyle = "#0d121d";
+    ctx.fillRect(0, H, W, footerH);
+    ctx.strokeStyle = "rgba(56, 189, 248, 0.45)";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(0, H);
+    ctx.lineTo(W, H);
+    ctx.stroke();
+
+    ctx.fillStyle = "#f8fafc";
+    ctx.font = `700 ${Math.max(13, Math.round(footerH * 0.31))}px sans-serif`;
+    ctx.fillText(titleText || "FORMECH CAE STUDIO — 3D ENGINEERING SNAPSHOT", 18, H + Math.round(footerH * 0.44));
+
+    ctx.fillStyle = "#38bdf8";
+    ctx.font = `600 ${Math.max(11, Math.round(footerH * 0.24))}px Consolas, monospace`;
+    ctx.fillText(metaText, 18, H + Math.round(footerH * 0.80));
+
+    return out.toDataURL("image/png");
   }
 
   setMode(mode) {
@@ -672,4 +736,4 @@ export class EngineeringCadStudioViewer {
     ctx.fillStyle = this.isRedacted ? "#f59e0b" : "#10b981";
     ctx.fillText(`${this.design.drawingSpec.tolerance.slice(0, 32)}`, tbX + 10 * dpr, tbY + 60 * dpr);
   }
-}
+  }
