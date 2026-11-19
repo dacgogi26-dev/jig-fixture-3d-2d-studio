@@ -9,7 +9,7 @@
     http-equiv="Content-Security-Policy"
     content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://cdn.jsdelivr.net https://*.make.com https://*.eu1.make.com https://*.eu2.make.com https://*.us1.make.com https://*.us2.make.com; worker-src 'self' blob:; object-src 'none'; base-uri 'self';"
   />
-  <title>FORMECH CAE STUDIO V5 | 정밀 치공구·자동화 기구 3D 설계 & 고체역학 임계 검증</title>
+  <title>FORMECH CAE STUDIO V6 | 제조기업용 AI 치공구 3D 설계 · 고체역학 검증 · 자동 견적 SaaS</title>
   <link rel="stylesheet" href="./styles.css" />
   <script type="importmap">
     {
@@ -22,7 +22,7 @@
 </head>
 <body>
   <!-- 상단 정밀 스튜디오 커맨드 바 -->
-  <header class="topbar">
+  <header class="topbar no-print">
     <div class="brand-group">
       <div class="brand-mark" aria-hidden="true">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1">
@@ -33,76 +33,107 @@
       </div>
       <div class="brand-text-wrap">
         <span class="brand-name">FORMECH CAE</span>
-        <span class="brand-version num">V5.0</span>
+        <span class="brand-version num">V6.0 B2B</span>
       </div>
-      <span class="brand-tag hide-mobile">ISO-10303 AP214 · MISUMI · SOLID MECHANICS</span>
+      <span class="brand-tag hide-mobile">AI JIG CAD · SOLID MECHANICS · MISUMI ERP</span>
     </div>
 
-    <div id="navAuthArea" class="topbar-right hidden">
-      <button id="nlBlurToggleBtn" class="btn btn-ghost active-blur-pill" type="button" title="자연어 프롬프트 및 실무 지시문 블러 보호 토글">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"></path>
-          <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"></path>
-          <line x1="1" y1="1" x2="23" y2="23"></line>
-        </svg>
-        <span id="nlBlurLabel">자연어 블러 ON</span>
+    <div class="topbar-right">
+      <button id="openPricingModalBtn" class="btn btn-ghost" type="button">
+        <span>요금제·PoC 신청</span>
       </button>
-      <button id="customerMaskToggleBtn" class="btn btn-ghost hidden" type="button" title="고객사 열람 시점 마스킹 시뮬레이션">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
-          <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
-        </svg>
-        <span id="customerMaskLabel" class="hide-mobile">고객 시점 마스킹</span>
-      </button>
-      <span id="tierBadge" class="tier-chip tier-admin">ADMIN</span>
-      <span id="userLabel" class="num hide-mobile" style="font-size: 11px; color: #64748b;"></span>
-      <button id="logoutBtn" class="btn btn-ghost" type="button">잠금</button>
+
+      <div id="navAuthArea" class="topbar-auth-sub hidden">
+        <button id="openQuoteModalBtn" class="btn btn-accent-outline" type="button">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+            <polyline points="14 2 14 8 20 8"></polyline>
+            <line x1="16" y1="13" x2="8" y2="13"></line>
+            <line x1="16" y1="17" x2="8" y2="17"></line>
+          </svg>
+          <span>품의 견적서</span>
+        </button>
+        <button id="customerMaskToggleBtn" class="btn btn-ghost hidden" type="button" title="바이어 데모(마스킹) 시점 전환">
+          <span id="customerMaskLabel">고객 시점</span>
+        </button>
+        <span id="tierBadge" class="tier-chip tier-admin">ADMIN</span>
+        <span id="userLabel" class="num hide-mobile" style="font-size: 11px; color: #64748b;"></span>
+        <button id="logoutBtn" class="btn btn-ghost" type="button">나가기</button>
+      </div>
     </div>
   </header>
 
-  <!-- 1단계: 제로트러스트 비공개 볼트 인증 화면 -->
-  <section id="gateView" class="gate-screen">
-    <div class="gate-card">
+  <!-- 1단계: B2B 제조 SaaS 쇼케이스 & 투트랙 온보딩 게이트 -->
+  <section id="gateView" class="gate-screen no-print">
+    <div class="gate-showcase">
       <div class="gate-badge-row">
-        <span class="gate-eyebrow">ZERO-TRUST CAD VAULT</span>
-        <span class="status-pill"><span class="pulse-dot"></span>ANTI-CLONE ACTIVE</span>
+        <span class="gate-eyebrow">INDUSTRIAL AI CAD · CAE · QUOTATION SaaS</span>
+        <span class="status-pill"><span class="pulse-dot"></span>ZERO-TRUST VAULT</span>
       </div>
-      <h2>정밀 치공구·자동화 기구 AI 설계 스튜디오</h2>
-      <p>
-        무단 웹 복제(REA·HTTrack·SingleFile) 차단 도메인 락 및 등급별 영업비밀 마스킹이 적용되어 있습니다. 승인된 엔지니어 초대코드로 입장하면 24시간 세션이 유지됩니다.
+
+      <h1 class="gate-hero-title">
+        현장 음성·실무어 한 줄로 끝내는<br />
+        정밀 치공구 3D 설계 및 원가·역학 자동 검증
+      </h1>
+      <p class="gate-hero-desc">
+        건당 평균 3~5일 걸리던 외주 치공구 설계와 미스미(MISUMI) 표준품 수배, 재료역학 안전율·모재 찍힘 검증, 전 상용 CAD 호환 <code>ISO AP214 .STEP</code> 및 품의용 공식 견적서 발급을 3분 만에 자동화합니다.
       </p>
-      <div class="gate-features">
-        <div class="gate-feat-item">
-          <span class="num feat-k">8종</span>
-          <span class="feat-v">표준 치공구·스테이지</span>
+
+      <div class="gate-kpi-strip">
+        <div class="gate-kpi-card">
+          <span class="num gk-val">3일 → 3분</span>
+          <span class="gk-lbl">초기 기구설계 · BOM 산출 리드타임 98% 단축</span>
         </div>
-        <div class="gate-feat-item">
-          <span class="num feat-k">AP214</span>
-          <span class="feat-v">전 상용 CAD 호환 .STEP</span>
+        <div class="gate-kpi-card">
+          <span class="num gk-val">평균 ₩82만</span>
+          <span class="gk-lbl">건당 외주 설계비 절감 및 과잉 사양 방지</span>
         </div>
-        <div class="gate-feat-item">
-          <span class="num feat-k">MISUMI</span>
-          <span class="feat-v">3단계 납기·원가 비교</span>
+        <div class="gate-kpi-card">
+          <span class="num gk-val">AP214 .STEP</span>
+          <span class="gk-lbl">SolidWorks · Inventor · CATIA 100% 직결</span>
         </div>
       </div>
-      <div class="gate-row">
-        <input
-          id="inviteInput"
-          type="password"
-          placeholder="초대코드 입력 (Access Code)"
-          autocomplete="off"
-        />
-        <button id="loginBtn" class="btn btn-primary gate-submit-btn" type="button">
-          볼트 인증 입장
-        </button>
+
+      <div class="gate-dual-grid">
+        <!-- 트랙 A: 심사위원·기업 바이어 즉시 데모 체험 -->
+        <div class="gate-track-box gate-track-demo">
+          <div class="track-tag">INSTANT B2B SANDBOX</div>
+          <h3>기업 바이어 · 심사위원 무료 체험</h3>
+          <p>
+            초대코드 없이 지금 바로 8대 표준 치공구 3D 합성, 음성 지시, 고체역학 임계선 해석을 직접 테스트해 보세요. (영업비밀 형번·STEP 추출은 안전하게 마스킹됩니다.)
+          </p>
+          <button id="demoPreviewBtn" class="btn btn-primary gate-full-btn" type="button">
+            코드 없이 1-Click 라이브 데모 입장
+          </button>
+        </div>
+
+        <!-- 트랙 B: 라이선스 구독 기업 / 관리자 입장 -->
+        <div class="gate-track-box">
+          <div class="track-tag" style="color: #6ee7b7;">LICENSED WORKSPACE</div>
+          <h3>구독 엔지니어 · 관리자 인증 입장</h3>
+          <p>
+            발급된 PRO / Enterprise 시트 코드로 입장하면 <code>.STEP</code> 원본 추출, 미스미 실형번·원가 비교, 공식 결재 견적서(PDF)가 전체 활성화됩니다.
+          </p>
+          <div class="gate-row">
+            <input
+              id="inviteInput"
+              type="password"
+              placeholder="라이선스 코드 입력"
+              autocomplete="off"
+            />
+            <button id="loginBtn" class="btn gate-submit-btn" type="button">
+              인증 입장
+            </button>
+          </div>
+          <div id="gateMsg" style="margin-top: 8px;"></div>
+        </div>
       </div>
-      <div id="gateMsg" style="margin-top: 12px;"></div>
     </div>
   </section>
 
   <!-- 2단계: 데스크톱 3단 워크스테이션 & 모바일 네이티브 앱 셸 -->
-  <main id="studioView" class="studio-shell hidden" data-mobile-tab="design">
-    <!-- 좌측 패널: 현장 요구사양 입력 & 8종 기구 아키텍처 & 역학 슬라이더 -->
+  <main id="studioView" class="studio-shell hidden no-print" data-mobile-tab="design">
+    <!-- 좌측 패널: 현장 요구사양 입력 & 8종 기구 아키텍처 & 역학·모재 변수 -->
     <aside class="sidebar-col" id="panelDesign">
       <div class="panel-group">
         <div class="section-label">
@@ -114,14 +145,10 @@
         </div>
 
         <div class="prompt-composer">
-          <div class="prompt-blur-wrap">
-            <textarea
-              id="promptInput"
-              class="nl-target nl-blurred"
-              placeholder="현업 용어로 편하게 말씀하거나 입력하세요."
-            ></textarea>
-            <div id="promptBlurHint" class="prompt-blur-chip">자연어 블러 보호 중 · 클릭 시 입력</div>
-          </div>
+          <textarea
+            id="promptInput"
+            placeholder="현업 용어로 편하게 말씀하거나 입력하세요. 예: 서스 원통 파이프 Ø42 CNC 드릴링 치는데 절삭부하 45kgf 걸려도 안 돌아가게 90도 브이블록 지그 짜줘"
+          ></textarea>
           <div class="composer-actions">
             <button id="micBtn" class="btn btn-mic" type="button">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -183,40 +210,37 @@
       </div>
 
       <div class="panel-group">
-        <div class="section-label">
-          <span>현업 생산기술 실전 프리셋</span>
-          <button id="inlineNlBlurBtn" class="mini-link-btn" type="button">자연어 블러 켜짐</button>
-        </div>
+        <div class="section-label"><span>현업 생산기술 실전 프리셋</span></div>
         <div class="preset-stack">
-          <button class="preset-row" type="button" data-preset="vblock">
+          <button class="preset-row" type="button" data-prompt="원통 서스 파이프 Ø42 CNC 드릴링 치는데 절삭부하 45kgf 걸려도 회전 안 하게 90도 브이블록 상부 가압 지그 짜줘">
             <span class="preset-tag">CNC</span>
-            <span class="preset-nl-text nl-target nl-blurred">파이프 Ø42 절삭부하 45kgf 대응 90° V-블록</span>
+            <span>파이프 Ø42 절삭부하 45kgf 대응 90° V-블록</span>
           </button>
-          <button class="preset-row" type="button" data-preset="chuck">
+          <button class="preset-row" type="button" data-prompt="알루미늄 감속기 플랜지 하우징 Ø58 선삭 후 동심도 측정하게 120도 3조 셀프센터링 동심 척 픽스처 55kgf 파지력으로 설계해줘">
             <span class="preset-tag">3-JAW</span>
-            <span class="preset-nl-text nl-target nl-blurred">감속기 하우징 Ø58 · 120° 3조 동심 자동 센터링 척</span>
+            <span>감속기 하우징 Ø58 · 120° 3조 동심 자동 센터링 척</span>
           </button>
-          <button class="preset-row" type="button" data-preset="stage">
+          <button class="preset-row" type="button" data-prompt="비전 검사기 광학 헤드 22kg 올리고 스트로크 64mm 가감속 1.2G 고속 이송하는 볼스크류 듀얼 LM가이드 서보 리니어 스테이지 짜줘">
             <span class="preset-tag">SERVO</span>
-            <span class="preset-nl-text nl-target nl-blurred">비전 헤드 22kg · 1.2G 볼스크류 듀얼 LM 스테이지</span>
+            <span>비전 헤드 22kg · 1.2G 볼스크류 듀얼 LM 스테이지</span>
           </button>
-          <button class="preset-row" type="button" data-preset="gripper">
+          <button class="preset-row" type="button" data-prompt="파우치 배터리 셀 68x24x104 무게 8kg 픽앤플레이스 고속 이송 가감속 2G 걸리는데 찍힘 없이 파지하는 공압 평행척 단납기로 잡아줘">
             <span class="preset-tag">P&amp;P</span>
-            <span class="preset-nl-text nl-target nl-blurred">이차전지 8kg · 2G 공압 평행 그리퍼 (당일출고)</span>
+            <span>이차전지 8kg · 2G 공압 평행 그리퍼 (당일출고)</span>
           </button>
-          <button class="preset-row" type="button" data-preset="press">
+          <button class="preset-row" type="button" data-prompt="전장 PCB 130x90 기능검사 지그에서 포고핀 반력 35kgf 수직으로 찍어누르는 트윈 가이드 프레스 픽스처 설계해줘">
             <span class="preset-tag">ICT</span>
-            <span class="preset-nl-text nl-target nl-blurred">전장 PCB 포고핀 반력 35kgf 수직 가이드 프레스</span>
+            <span>전장 PCB 포고핀 반력 35kgf 수직 가이드 프레스</span>
           </button>
-          <button class="preset-row" type="button" data-preset="frame">
+          <button class="preset-row" type="button" data-prompt="레이저 마킹 설비 상판 95kg 하중 버티는 미스미 4545 알루미늄 프로파일 정반 프레임 가대 양산 원가절감형으로 구성해줘">
             <span class="preset-tag">FRAME</span>
-            <span class="preset-nl-text nl-target nl-blurred">레이저 설비 95kg 미스미 알루미늄 프로파일 정반 가대</span>
+            <span>레이저 설비 95kg 미스미 알루미늄 프로파일 정반 가대</span>
           </button>
         </div>
       </div>
 
       <div class="panel-group control-block">
-        <div class="section-label"><span>물리 하중 · 기구학 정밀 변수</span></div>
+        <div class="section-label"><span>물리 하중 · 모재 보호 · 기구 변수</span></div>
 
         <div class="slider-item">
           <div class="slider-head">
@@ -268,6 +292,16 @@
             </select>
           </div>
         </div>
+
+        <div>
+          <div class="slider-head" style="margin-bottom: 5px;"><span>피가공물 모재 물성 (표면 압흔·크랙 검증)</span></div>
+          <select id="workpieceMatSelect" class="studio-select">
+            <option value="sus304">SUS304 / S45C 강재 (허용 185 MPa)</option>
+            <option value="al6061">AL6061 아노다이징 하우징 (허용 58 MPa)</option>
+            <option value="fr4_pcb">FR-4 전장 PCB 기판 (허용 16 MPa)</option>
+            <option value="pouch_cell">이차전지 파우치·박막 셀 (허용 2.2 MPa)</option>
+          </select>
+        </div>
       </div>
     </aside>
 
@@ -276,17 +310,19 @@
       <div id="viewportContainer">
         <canvas id="blueprintCanvas"></canvas>
 
-        <!-- 상단 플로팅 타이틀 & 카메라 독 -->
+        <!-- 상단 플로팅 타이틀 & 설비 검증 카메라 독 -->
         <div class="stage-overlay-top">
           <div class="glass-box title-hud">
             <h1 id="designTitle">정밀 브이블록 클램프 어셈블리</h1>
-            <p id="designSubtitle" class="nl-target nl-blurred">부품을 클릭하거나 터치하면 재질·규격 인스펙터가 표시됩니다.</p>
+            <p id="designSubtitle">부품을 클릭하거나 터치하면 재질·규격 인스펙터가 표시됩니다.</p>
           </div>
 
           <div class="glass-box cam-dock">
             <button class="dock-btn active" type="button" data-view="3d">3D</button>
             <button class="dock-btn" type="button" data-view="2d">2D 도면</button>
-            <button id="wireframeBtn" class="dock-btn" type="button" title="와이어프레임 엣지 투시">WIRE</button>
+            <button id="wireframeBtn" class="dock-btn" type="button" title="와이어프레임 투시">WIRE</button>
+            <button id="envelopeBtn" class="dock-btn" type="button" title="설비 장착 간섭용 외곽 치수 박스">외곽박스</button>
+            <button id="snapshotBtn" class="dock-btn hide-mobile" type="button" title="제안서용 워터마크 3D 스냅샷 PNG 저장">캡처</button>
             <span class="dock-sep hide-mobile"></span>
             <button class="dock-btn hide-mobile" type="button" data-cam="iso">ISO</button>
             <button class="dock-btn hide-mobile" type="button" data-cam="front">FRONT</button>
@@ -328,15 +364,31 @@
       </div>
     </section>
 
-    <!-- 우측 인스펙터: 역학 임계 해석 / 미스미 BOM / GitHub & Make 자동화 허브 -->
+    <!-- 우측 인스펙터: B2B ROI 배너 + 역학 임계 / 미스미 BOM·견적 / 보관함·자동화 -->
     <aside class="inspector-col" id="panelInspector">
-      <div class="segmented-tabs">
-        <button class="seg-tab active" type="button" data-tab="physics">물리·임계 해석</button>
-        <button class="seg-tab" type="button" data-tab="bom">미스미 BOM·원가</button>
-        <button class="seg-tab" type="button" data-tab="make">자동화·사양 허브</button>
+      <!-- B2B 도입 정량 효과(ROI) 상시 요약 스트립 -->
+      <div class="roi-strip">
+        <div class="roi-cell">
+          <span class="roi-lbl">외주 설계비 절감</span>
+          <span id="roiSavedKrw" class="roi-val num" style="color: #10b981;">₩840,000</span>
+        </div>
+        <div class="roi-cell">
+          <span class="roi-lbl">수작업 공수 단축</span>
+          <span id="roiSavedHours" class="roi-val num" style="color: #38bdf8;">24h → 3m</span>
+        </div>
+        <div class="roi-cell">
+          <span class="roi-lbl">턴키 예상 제작비</span>
+          <span id="roiTurnkeyKrw" class="roi-val num">₩0</span>
+        </div>
       </div>
 
-      <!-- 탭 1: 고체역학 임계선 & AI 추론 근거 -->
+      <div class="segmented-tabs">
+        <button class="seg-tab active" type="button" data-tab="physics">물리·임계 해석</button>
+        <button class="seg-tab" type="button" data-tab="bom">미스미 BOM·견적</button>
+        <button class="seg-tab" type="button" data-tab="make">보관함·자동화</button>
+      </div>
+
+      <!-- 탭 1: 고체역학·모재면압 5대 임계선 & AI 추론 근거 -->
       <div id="tabPhysics" class="inspector-body">
         <div class="kpi-grid">
           <div class="kpi-box">
@@ -360,13 +412,13 @@
         <div id="reinforceAlertBox" class="reinforce-wrap hidden">
           <div id="reinforceWarningText" class="msg-banner msg-err"></div>
           <button id="autoReinforceBtn" class="btn btn-reinforce" type="button">
-            AI 물리 임계치 자동 보강 적용 (축경·스프링·배력 승격)
+            AI 물리·모재 임계치 자동 보강 적용 (축경·패드·구동 승격)
           </button>
         </div>
 
         <div>
           <div class="section-label">
-            <span>지구 재료 항복 · 처짐 · 포화 임계선</span>
+            <span>5대 고체역학 · 모재 표면손상 임계선</span>
             <span class="num" style="font-size: 10px; color: var(--text-3);">g = 9.807 m/s²</span>
           </div>
           <div id="limitCardsContainer" class="limit-list"></div>
@@ -385,7 +437,7 @@
         </div>
       </div>
 
-      <!-- 탭 2: 미스미 표준품 선정 & 3종 원가 비교 -->
+      <!-- 탭 2: 미스미 표준품 선정 & 3종 원가 비교 & 품의 견적서 -->
       <div id="tabBom" class="inspector-body hidden">
         <div class="tier-cards">
           <div class="tier-card active" data-prio="best">
@@ -406,7 +458,7 @@
         </div>
 
         <div class="helper-caption">
-          행 클릭 또는 터치 시 3D 뷰포트에서 해당 부품이 즉시 하이라이트됩니다.
+          행 클릭 시 3D 부품 위치가 하이라이트됩니다. 품의 결재용 서류는 아래 버튼으로 즉시 발급하세요.
         </div>
 
         <div class="bom-wrap">
@@ -423,24 +475,40 @@
           </table>
         </div>
 
-        <button id="downloadBomBtn" class="btn" type="button" style="width: 100%; height: 38px;">
-          구매 발주용 표준 BOM 리스트 (.CSV) 추출
-        </button>
+        <div class="hub-btn-grid" style="margin-top: 2px;">
+          <button id="bomOpenQuoteBtn" class="btn btn-primary" type="button">
+            공식 견적·승인서 발급 (PDF)
+          </button>
+          <button id="downloadBomBtn" class="btn" type="button">
+            표준 BOM (.CSV) 추출
+          </button>
+        </div>
       </div>
 
-      <!-- 탭 3: 무설정 GitHub 설계 사양 허브 & Make.com 연동 -->
+      <!-- 탭 3: 다중 설계안 비교 보관함(Vault) & GitHub 사양 허브 & Make 연동 -->
       <div id="tabMake" class="inspector-body hidden">
+        <!-- 프로젝트 다중 설계안 버전 보관함 -->
         <div class="hub-card">
           <div class="hub-card-head">
-            <span class="hub-badge">ZERO-SETUP READY</span>
-            <span class="num" style="font-size: 10.5px; color: #10b981;">GitHub 내장 엔진 활성</span>
+            <span class="hub-badge">PROJECT VAULT</span>
+            <button id="saveToVaultBtn" class="btn btn-compact btn-primary" type="button">
+              + 현재 설계안 보관
+            </button>
           </div>
-          <p class="hub-desc">
-            별도 외부 계정 설정 없이도 내장 고체역학·미스미 솔버가 100% 독립 작동합니다. 현재 설계 사양을 <code>.formech.json</code> 프로젝트 파일로 저장하거나 동료 엔지니어와 즉시 공유할 수 있습니다.
+          <p class="hub-desc" style="margin-bottom: 8px;">
+            고객사 미팅 시 A안·B안·C안을 보관함에 저장해 두고 원클릭으로 불러와 안전율과 제작 단가를 즉시 비교할 수 있습니다.
           </p>
+          <div id="vaultListContainer" class="vault-list"></div>
+        </div>
+
+        <div class="hub-card">
+          <div class="hub-card-head">
+            <span class="hub-badge">SPEC COLLABORATION</span>
+            <span class="num" style="font-size: 10.5px; color: #10b981;">무설정 독립 가동</span>
+          </div>
           <div class="hub-btn-grid">
-            <button id="exportSpecJsonBtn" class="btn btn-primary" type="button">
-              설계 사양 (.JSON) 저장
+            <button id="exportSpecJsonBtn" class="btn" type="button">
+              사양 파일 (.JSON) 저장
             </button>
             <button id="importSpecJsonBtn" class="btn" type="button">
               사양 파일 불러오기
@@ -448,20 +516,15 @@
             <input id="importSpecFileInput" type="file" accept=".json,application/json" class="hidden" />
           </div>
           <button id="copySpecSummaryBtn" class="btn" type="button" style="width: 100%; margin-top: 6px;">
-            설계 검토 요약서 클립보드 복사 (메신저·이슈 공유용)
+            설계 검토 요약서 클립보드 복사 (협업 메신저용)
           </button>
         </div>
 
         <div class="hub-card">
           <div class="section-label" style="margin-bottom: 6px;">
-            <span>Make.com 외부 LLM 오케스트레이션 (선택 연동)</span>
+            <span>Make.com 엔터프라이즈 웹훅 연동</span>
           </div>
-          <p class="hub-desc">
-            GitHub 저장소에 함께 배포된 <code>make-blueprint.json</code>을 Make.com의 <strong>Import Blueprint</strong>에 올린 뒤 발급된 Webhook URL을 연결하면, 외부 GPT-4o/Claude 파이프라인과 실시간 연동됩니다.
-          </p>
-
-          <div class="slider-item" style="margin-top: 8px;">
-            <div class="slider-head"><span>Make Custom Webhook URL</span></div>
+          <div class="slider-item">
             <input
               id="makeWebhookInput"
               class="studio-text-input"
@@ -469,16 +532,14 @@
               placeholder="https://hook.eu2.make.com/..."
             />
           </div>
-
-          <div style="display: flex; gap: 6px; margin-top: 8px;">
+          <div style="display: flex; gap: 6px; margin-top: 7px;">
             <button id="saveMakeUrlBtn" class="btn btn-primary" type="button" style="flex: 1;">
-              웹훅 저장 · 연결
+              웹훅 저장
             </button>
-            <button id="clearMakeUrlBtn" class="btn" type="button">내장 모드로 해제</button>
+            <button id="clearMakeUrlBtn" class="btn" type="button">해제</button>
           </div>
-
-          <button id="downloadMakeBpBtn" class="btn" type="button" style="width: 100%; margin-top: 8px;">
-            GitHub 내장 Make 시나리오 블루프린트 (.JSON) 받기
+          <button id="downloadMakeBpBtn" class="btn" type="button" style="width: 100%; margin-top: 7px;">
+            Make 8종 치공구 시나리오 블루프린트 (.JSON) 받기
           </button>
         </div>
 
@@ -509,9 +570,6 @@
           <line x1="12" y1="8" x2="12" y2="3"></line>
           <line x1="20" y1="21" x2="20" y2="16"></line>
           <line x1="20" y1="12" x2="20" y2="3"></line>
-          <line x1="1" y1="14" x2="7" y2="14"></line>
-          <line x1="9" y1="8" x2="15" y2="8"></line>
-          <line x1="17" y1="16" x2="23" y2="16"></line>
         </svg>
         <span>설계 지시</span>
       </button>
@@ -527,7 +585,7 @@
           <line x1="3" y1="9" x2="21" y2="9"></line>
           <line x1="9" y1="21" x2="9" y2="9"></line>
         </svg>
-        <span>미스미 BOM</span>
+        <span>BOM·견적</span>
       </button>
       <button class="m-nav-btn" type="button" data-mnav="hub">
         <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9">
@@ -535,11 +593,120 @@
           <polyline points="7 10 12 15 17 10"></polyline>
           <line x1="12" y1="15" x2="12" y2="3"></line>
         </svg>
-        <span>STEP·자동화</span>
+        <span>보관함·STEP</span>
       </button>
     </nav>
   </main>
 
+  <!-- 모달 1: A4 규격 공식 B2B 기술검토 승인서 & 표준 원가 견적서 -->
+  <div id="quoteModal" class="modal-backdrop hidden">
+    <div class="modal-panel modal-quote">
+      <div class="modal-head no-print">
+        <div>
+          <span class="hub-badge">OFFICIAL B2B QUOTATION &amp; CAE APPROVAL</span>
+          <h3 style="margin-top: 4px;">품의 결재용 기술검토 승인서 및 표준 견적서</h3>
+        </div>
+        <div style="display: flex; gap: 6px; align-items: center;">
+          <input
+            id="quoteClientInput"
+            class="studio-text-input"
+            type="text"
+            value="귀사 생산기술·구매팀 귀중"
+            placeholder="수신처 기업명 입력"
+            style="width: 190px;"
+          />
+          <button id="printQuoteBtn" class="btn btn-primary" type="button">PDF 저장 / 인쇄</button>
+          <button id="closeQuoteModalBtn" class="btn" type="button">닫기</button>
+        </div>
+      </div>
+      <div id="quoteSheetBody" class="quote-sheet-paper"></div>
+    </div>
+  </div>
+
+  <!-- 모달 2: B2B SaaS 요금제 · 연간 ROI 시뮬레이터 · 기업 PoC 실증 신청 -->
+  <div id="pricingModal" class="modal-backdrop hidden no-print">
+    <div class="modal-panel modal-pricing">
+      <div class="modal-head">
+        <div>
+          <span class="hub-badge">ENTERPRISE SaaS PRICING &amp; PoC</span>
+          <h3 style="margin-top: 4px;">FORMECH CAE 기업용 구독 플랜 및 실증(PoC) 도입 신청</h3>
+        </div>
+        <button id="closePricingModalBtn" class="btn" type="button">닫기</button>
+      </div>
+
+      <div class="pricing-body">
+        <!-- 인터랙티브 연간 도입 ROI 계산기 -->
+        <div class="roi-sim-box">
+          <div class="slider-head">
+            <span>귀사 월 평균 치공구·지그 신규 설계 건수</span>
+            <span id="pocMonthlyCountLabel" class="slider-readout" style="color: #38bdf8;">월 8건 설계</span>
+          </div>
+          <input id="pocMonthlySlider" type="range" min="1" max="40" step="1" value="8" style="margin: 8px 0;" />
+          <div class="roi-sim-result">
+            <div>연간 외주 설계비 예상 절감액: <strong id="pocAnnualSaveLabel" class="num" style="color: #10b981;">₩78,720,000 / 년</strong></div>
+            <div>단축 엔지니어링 공수: <strong id="pocAnnualHoursLabel" class="num" style="color: #38bdf8;">2,112 M/H 단축</strong></div>
+          </div>
+        </div>
+
+        <!-- 3단계 B2B 요금제 -->
+        <div class="plan-grid">
+          <div class="plan-card">
+            <div class="plan-tier">STARTER SANDBOX</div>
+            <div class="plan-price num">무료 체험</div>
+            <div class="plan-sub">바이어 검증 및 초기 사양 검토용</div>
+            <ul class="plan-list">
+              <li>8대 표준 치공구 실시간 3D/2D 합성</li>
+              <li>5대 고체역학·모재 압흔 임계 시뮬레이션</li>
+              <li>총 제작 예산 가이드 열람 (세부 형번 마스킹)</li>
+            </ul>
+          </div>
+
+          <div class="plan-card plan-featured">
+            <div class="plan-tier" style="color: #38bdf8;">PRO ENGINEER SEAT</div>
+            <div class="plan-price num">₩190,000 <span style="font-size: 11px; font-weight: 500; color: #94a3b8;">/ 월 (시트당)</span></div>
+            <div class="plan-sub">생산기술팀 · 자동화 장비 설계실 표준</div>
+            <ul class="plan-list">
+              <li>무제한 <code>ISO AP214 .STEP</code> 원본 추출</li>
+              <li>미스미(MISUMI) 3종 실형번 · 단가 · CSV 발주서</li>
+              <li>품의 결재용 공식 견적서·기술승인서(PDF) 발급</li>
+              <li>제안서용 고해상도 3D 스냅샷 &amp; 다중 설계 보관함</li>
+            </ul>
+          </div>
+
+          <div class="plan-card">
+            <div class="plan-tier" style="color: #c084fc;">ENTERPRISE / SI 구축형</div>
+            <div class="plan-price num">별도 협의 <span style="font-size: 11px; font-weight: 500; color: #94a3b8;">(연간/온프레미스)</span></div>
+            <div class="plan-sub">중견 제조사 · 이차전지/전장 라인 SI</div>
+            <ul class="plan-list">
+              <li>사내 표준 부품 규격집 및 전용 가공 단가표 학습</li>
+              <li>사내 ERP / PLM / Make 파이프라인 전용 API 연동</li>
+              <li>도면 유출 추적용 포렌식 워터마크 보안 감사</li>
+            </ul>
+          </div>
+        </div>
+
+        <!-- 기업 PoC / 라이선스 발급 신청 폼 -->
+        <form id="pocLeadForm" class="poc-form">
+          <div class="section-label"><span>기업 실증(PoC) 및 PRO 라이선스 도입 상담 신청</span></div>
+          <div class="poc-input-grid">
+            <input id="pocCompany" class="studio-text-input" type="text" placeholder="기업/기관명 (예: 한국정밀자동화)" required />
+            <input id="pocManager" class="studio-text-input" type="text" placeholder="담당자 성함 / 직책" required />
+            <input id="pocContact" class="studio-text-input" type="text" placeholder="이메일 또는 직통 연락처" required />
+            <select id="pocPlanSelect" class="studio-select">
+              <option value="PRO_TRIAL">PRO 시트 14일 무상 실증(PoC) 요청</option>
+              <option value="PRO_PURCHASE">PRO 연간 구독 견적서 요청</option>
+              <option value="ENTERPRISE_SI">Enterprise 사내 구축·커스텀 미팅 요청</option>
+            </select>
+          </div>
+          <button class="btn btn-primary" type="submit" style="width: 100%; height: 38px; margin-top: 8px;">
+            도입 상담 및 실증 라이선스 신청 접수
+          </button>
+          <div id="pocFormMsg" style="margin-top: 8px;"></div>
+        </form>
+      </div>
+    </div>
+  </div>
+
   <script type="module" src="./app.js"></script>
 </body>
-</html>
+            </html>
