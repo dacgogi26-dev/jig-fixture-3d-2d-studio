@@ -1,7 +1,11 @@
 /**
- * V4.0 상용 CAD 전종 호환 ISO-10303-21 AP214 (AUTOMOTIVE_DESIGN) 정밀 B-Rep 컴파일러
- * - 지원 프리미티브: 정밀 육면체(box), 해석적 진원 원기둥(cylinder), 다단 코일 스프링(spring), 육각소켓 볼트(bolt)
- * - 모든 솔리드 폐루프 정점 연속성 및 오일러 위상(V - E + F = 2) 100% 보장
+ * V5.0 상용 CAD 전종 완벽 호환 ISO-10303-21 AP214 (AUTOMOTIVE_DESIGN) 정밀 B-Rep 컴파일러
+ * 지원 형상:
+ * - box: 정밀 가공 직육면체
+ * - rotated_box: 임의 각도(예: 3조 척 120°/240° 방사형 조우) 회전 육면체 B-Rep
+ * - cylinder: 해석적 진원 원기둥(CYLINDRICAL_SURFACE + 180° 분할 CIRCLE)
+ * - bolt: 육각소켓 캡 볼트(헤드 + 섕크)
+ * - spring: 다단 코일 링 세트
  */
 
 function fmt(n) {
@@ -46,7 +50,7 @@ export function compileUniversalAp214Step({
   };
 
   const safePid = cleanStepStr(projectId || "ASSY_AP214");
-  const safeTitle = cleanStepStr(titleEn || "Precision Mechanical Jig Assembly");
+  const safeTitle = cleanStepStr(titleEn || "Precision Mechanical Assembly");
   const wmkId = cleanStepStr(watermark?.watermarkId || "WMK-VERIFIED");
   const wmkSig = cleanStepStr(watermark?.signatureHex || "AUTHENTIC");
   const dxMicro = Number(watermark?.microDeltaMm?.dx || 0.0023);
@@ -115,72 +119,126 @@ export function compileUniversalAp214Step({
     return psa;
   };
 
+  /**
+   * 임의 회전/직교 4각 단면 수직 돌출 육면체 B-Rep 솔리드 (V=8, E=12, F=6 => V-E+F=2)
+   */
+  const buildQuadPrismSolid = (name, quadCCW, z0, z1) => {
+    const minZ = Math.min(z0, z1);
+    const maxZ = Math.max(z0, z1);
+
+    const botPts = quadCCW.map(([px, py]) =>
+      add(`CARTESIAN_POINT('', (${fmt(px)}, ${fmt(py)}, ${fmt(minZ)}))`)
+    );
+    const topPts = quadCCW.map(([px, py]) =>
+      add(`CARTESIAN_POINT('', (${fmt(px)}, ${fmt(py)}, ${fmt(maxZ)}))`)
+    );
+    const botVerts = botPts.map((id) => add(`VERTEX_POINT('', #${id})`));
+    const topVerts = topPts.map((id) => add(`VERTEX_POINT('', #${id})`));
+
+    const botEdges = [];
+    const topEdges = [];
+    const vertEdges = [];
+    const sideNorms = [];
+    const edgeDirs = [];
+
+    for (let i = 0; i < 4; i++) {
+      const j = (i + 1) % 4;
+      const dx = quadCCW[j][0] - quadCCW[i][0];
+      const dy = quadCCW[j][1] - quadCCW[i][1];
+      const len = Math.hypot(dx, dy) || 1;
+      const ux = dx / len;
+      const uy = dy / len;
+
+      const tDir = add(`DIRECTION('', (${fmt(ux)}, ${fmt(uy)}, 0.))`);
+      const tVec = add(`VECTOR('', #${tDir}, 1.)`);
+      const nDir = add(`DIRECTION('', (${fmt(uy)}, ${fmt(-ux)}, 0.))`);
+      edgeDirs.push(tDir);
+      sideNorms.push(nDir);
+
+      botEdges.push(
+        add(`EDGE_CURVE('', #${botVerts[i]}, #${botVerts[j]}, #${add(`LINE('', #${botPts[i]}, #${tVec})`)}, .T.)`)
+      );
+      topEdges.push(
+        add(`EDGE_CURVE('', #${topVerts[i]}, #${topVerts[j]}, #${add(`LINE('', #${topPts[i]}, #${tVec})`)}, .T.)`)
+      );
+      vertEdges.push(
+        add(`EDGE_CURVE('', #${botVerts[i]}, #${topVerts[i]}, #${add(`LINE('', #${botPts[i]}, #${vecPosZ})`)}, .T.)`)
+      );
+    }
+
+    const faces = [];
+
+    // Bottom (-Z)
+    const botOE = [3, 2, 1, 0].map((i) => add(`ORIENTED_EDGE('', *, #${botEdges[i]}, .F.)`));
+    faces.push(
+      add(
+        `ADVANCED_FACE('', (#${add(`FACE_OUTER_BOUND('', #${add(`EDGE_LOOP('', (${botOE.map((o) => `#${o}`).join(", ")}))`)}, .T.)`)}), #${add(`PLANE('', #${add(`AXIS2_PLACEMENT_3D('', #${botPts[0]}, #${dirNegZ}, #${dirPosX})`)})`)}, .T.)`
+      )
+    );
+
+    // Top (+Z)
+    const topOE = [0, 1, 2, 3].map((i) => add(`ORIENTED_EDGE('', *, #${topEdges[i]}, .T.)`));
+    faces.push(
+      add(
+        `ADVANCED_FACE('', (#${add(`FACE_OUTER_BOUND('', #${add(`EDGE_LOOP('', (${topOE.map((o) => `#${o}`).join(", ")}))`)}, .T.)`)}), #${add(`PLANE('', #${add(`AXIS2_PLACEMENT_3D('', #${topPts[0]}, #${dirPosZ}, #${dirPosX})`)})`)}, .T.)`
+      )
+    );
+
+    // 4 Side Faces
+    for (let i = 0; i < 4; i++) {
+      const j = (i + 1) % 4;
+      const sOE = [
+        add(`ORIENTED_EDGE('', *, #${botEdges[i]}, .T.)`),
+        add(`ORIENTED_EDGE('', *, #${vertEdges[j]}, .T.)`),
+        add(`ORIENTED_EDGE('', *, #${topEdges[i]}, .F.)`),
+        add(`ORIENTED_EDGE('', *, #${vertEdges[i]}, .F.)`),
+      ];
+      faces.push(
+        add(
+          `ADVANCED_FACE('', (#${add(`FACE_OUTER_BOUND('', #${add(`EDGE_LOOP('', (${sOE.map((o) => `#${o}`).join(", ")}))`)}, .T.)`)}), #${add(`PLANE('', #${add(`AXIS2_PLACEMENT_3D('', #${botPts[i]}, #${sideNorms[i]}, #${edgeDirs[i]})`)})`)}, .T.)`
+        )
+      );
+    }
+
+    const shell = add(`CLOSED_SHELL('', (${faces.map((f) => `#${f}`).join(", ")}))`);
+    return add(`MANIFOLD_SOLID_BREP('${cleanStepStr(name)}', #${shell})`);
+  };
+
   const buildBoxSolid = (name, x0, y0, z0, x1, y1, z1) => {
     const minX = Math.min(x0, x1);
     const maxX = Math.max(x0, x1);
     const minY = Math.min(y0, y1);
     const maxY = Math.max(y0, y1);
-    const minZ = Math.min(z0, z1);
-    const maxZ = Math.max(z0, z1);
-
-    const coords = [
-      [minX, minY, minZ],
-      [maxX, minY, minZ],
-      [maxX, maxY, minZ],
-      [minX, maxY, minZ],
-      [minX, minY, maxZ],
-      [maxX, minY, maxZ],
-      [maxX, maxY, maxZ],
-      [minX, maxY, maxZ],
-    ];
-
-    const pts = coords.map(([px, py, pz]) =>
-      add(`CARTESIAN_POINT('', (${fmt(px)}, ${fmt(py)}, ${fmt(pz)}))`)
+    return buildQuadPrismSolid(
+      name,
+      [
+        [minX, minY],
+        [maxX, minY],
+        [maxX, maxY],
+        [minX, maxY],
+      ],
+      z0,
+      z1
     );
-    const verts = pts.map((pId) => add(`VERTEX_POINT('', #${pId})`));
+  };
 
-    const mkEdge = (sIdx, eIdx, vecId) => {
-      const ln = add(`LINE('', #${pts[sIdx]}, #${vecId})`);
-      return add(`EDGE_CURVE('', #${verts[sIdx]}, #${verts[eIdx]}, #${ln}, .T.)`);
-    };
-
-    const E = [
-      mkEdge(0, 1, vecPosX),
-      mkEdge(1, 2, vecPosY),
-      mkEdge(2, 3, vecNegX),
-      mkEdge(3, 0, vecNegY),
-      mkEdge(4, 5, vecPosX),
-      mkEdge(5, 6, vecPosY),
-      mkEdge(6, 7, vecNegX),
-      mkEdge(7, 4, vecNegY),
-      mkEdge(0, 4, vecPosZ),
-      mkEdge(1, 5, vecPosZ),
-      mkEdge(2, 6, vecPosZ),
-      mkEdge(3, 7, vecPosZ),
+  const buildRotatedBoxSolid = (name, cx, cy, z0, w, d, h, angleDeg) => {
+    const rad = ((Number(angleDeg) || 0) * Math.PI) / 180;
+    const cos = Math.cos(rad);
+    const sin = Math.sin(rad);
+    const hw = w / 2;
+    const hd = d / 2;
+    const localCorners = [
+      [-hw, -hd],
+      [hw, -hd],
+      [hw, hd],
+      [-hw, hd],
     ];
-
-    const mkPlaneFace = (ptIdx, normDirId, refDirId, loopSpec) => {
-      const oEdges = loopSpec.map(([eIdx, sense]) =>
-        add(`ORIENTED_EDGE('', *, #${E[eIdx]}, ${sense ? ".T." : ".F."})`)
-      );
-      const loop = add(`EDGE_LOOP('', (${oEdges.map((i) => `#${i}`).join(", ")}))`);
-      const bound = add(`FACE_OUTER_BOUND('', #${loop}, .T.)`);
-      const ax = add(`AXIS2_PLACEMENT_3D('', #${pts[ptIdx]}, #${normDirId}, #${refDirId})`);
-      const pl = add(`PLANE('', #${ax})`);
-      return add(`ADVANCED_FACE('', (#${bound}), #${pl}, .T.)`);
-    };
-
-    const faces = [
-      mkPlaneFace(0, dirNegZ, dirPosX, [[3, false], [2, false], [1, false], [0, false]]),
-      mkPlaneFace(4, dirPosZ, dirPosX, [[4, true], [5, true], [6, true], [7, true]]),
-      mkPlaneFace(0, dirNegY, dirPosX, [[0, true], [9, true], [4, false], [8, false]]),
-      mkPlaneFace(2, dirPosY, dirNegX, [[2, true], [11, true], [6, false], [10, false]]),
-      mkPlaneFace(1, dirPosX, dirPosY, [[1, true], [10, true], [5, false], [9, false]]),
-      mkPlaneFace(3, dirNegX, dirNegY, [[3, true], [8, true], [7, false], [11, false]]),
-    ];
-
-    const shell = add(`CLOSED_SHELL('', (${faces.map((f) => `#${f}`).join(", ")}))`);
-    return add(`MANIFOLD_SOLID_BREP('${cleanStepStr(name)}', #${shell})`);
+    const worldQuad = localCorners.map(([lx, ly]) => [
+      cx + lx * cos - ly * sin,
+      cy + lx * sin + ly * cos,
+    ]);
+    return buildQuadPrismSolid(name, worldQuad, z0, z0 + h);
   };
 
   const buildAnalyticalCylinderSolid = (name, axisName, cx, cy, cz, radius, length) => {
@@ -287,19 +345,15 @@ export function compileUniversalAp214Step({
 
     if (p.kind === "cylinder") {
       registerSolid(
-        buildAnalyticalCylinderSolid(
-          partLabel,
-          p.axis || "z",
-          p.cx,
-          p.cy,
-          p.cz,
-          p.radius,
-          p.length + mz
-        ),
+        buildAnalyticalCylinderSolid(partLabel, p.axis || "z", p.cx, p.cy, p.cz, p.radius, p.length + mz),
+        p.color
+      );
+    } else if (p.kind === "rotated_box") {
+      registerSolid(
+        buildRotatedBoxSolid(partLabel, p.cx, p.cy, p.z, p.w + mx, p.d + my, p.h + mz, p.angleDeg || 0),
         p.color
       );
     } else if (p.kind === "bolt") {
-      // 육각소켓 캡 볼트 (헤드 원기둥 + 나사부 섕크 원기둥 2솔리드 정밀 표현)
       const headR = p.headRadius || p.radius * 1.65;
       const headH = p.headLength || p.radius * 2.0;
       const shankL = p.shankLength || 16;
@@ -356,7 +410,7 @@ export function compileUniversalAp214Step({
     "ISO-10303-21;",
     "HEADER;",
     `FILE_DESCRIPTION(('STEP AP214 Precision Mechanical Assembly', 'FORENSIC_ID:${wmkId}', 'SIG:${wmkSig}'), '2;1');`,
-    `FILE_NAME('${safePid}.step', '${nowIso}', ('${safeOwner}'), ('AI_MECHANICAL_CAE_VAULT'), 'AP214_KERNEL_V4', 'ZERO_TRUST_CAD', 'CONFIDENTIAL');`,
+    `FILE_NAME('${safePid}.step', '${nowIso}', ('${safeOwner}'), ('FORMECH_CAE_V5'), 'AP214_KERNEL_V5', 'ZERO_TRUST_CAD', 'CONFIDENTIAL');`,
     "FILE_SCHEMA(('AUTOMOTIVE_DESIGN { 1 0 10303 214 1 1 1 1 }'));",
     "ENDSEC;",
     "DATA;",
@@ -365,4 +419,4 @@ export function compileUniversalAp214Step({
     "END-ISO-10303-21;",
     "",
   ].join("\n");
-                 }
+}
