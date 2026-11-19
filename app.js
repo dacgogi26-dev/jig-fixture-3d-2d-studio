@@ -1,6 +1,7 @@
 import {
   TIER_LEVEL,
   clearPersistedSession,
+  createDemoBuyerSession,
   enforceAntiCloneGuard,
   loadPersistedSession,
   redactEngineeringResult,
@@ -19,55 +20,21 @@ import { EngineeringCadStudioViewer } from "./viewer3d.js";
 // 무단 웹 복제기(REA/HTTrack/SingleFile) 및 비인가 미러 도메인 실행 즉시 차단
 enforceAntiCloneGuard();
 
-// 현업 자연어 프리셋 사전 (HTML 소스 내 data-prompt 평문 노출 원천 제거)
-const PRESET_DICTIONARY = Object.freeze({
-  vblock: {
-    label: "파이프 Ø42 절삭부하 45kgf 대응 90° V-블록",
-    prompt:
-      "원통 서스 파이프 Ø42 CNC 드릴링 치는데 절삭부하 45kgf 걸려도 회전 안 하게 90도 브이블록 상부 가압 지그 짜줘",
-  },
-  chuck: {
-    label: "감속기 하우징 Ø58 · 120° 3조 동심 자동 센터링 척",
-    prompt:
-      "원통 감속기 플랜지 하우징 Ø58 선삭 후 동심도 측정하게 120도 3조 셀프센터링 동심 척 픽스처 55kgf 파지력으로 설계해줘",
-  },
-  stage: {
-    label: "비전 헤드 22kg · 1.2G 볼스크류 듀얼 LM 스테이지",
-    prompt:
-      "비전 검사기 광학 헤드 22kg 올리고 스트로크 64mm 가감속 1.2G 고속 이송하는 볼스크류 듀얼 LM가이드 서보 리니어 스테이지 짜줘",
-  },
-  gripper: {
-    label: "이차전지 8kg · 2G 공압 평행 그리퍼 (당일출고)",
-    prompt:
-      "파우치 배터리 셀 68x24x104 무게 8kg 픽앤플레이스 고속 이송 가감속 2G 걸리는데 찍힘 없이 파지하는 공압 평행척 단납기로 잡아줘",
-  },
-  press: {
-    label: "전장 PCB 포고핀 반력 35kgf 수직 가이드 프레스",
-    prompt:
-      "전장 PCB 130x90 기능검사 지그에서 포고핀 반력 35kgf 수직으로 찍어누르는 트윈 가이드 프레스 픽스처 설계해줘",
-  },
-  frame: {
-    label: "레이저 설비 95kg 미스미 알루미늄 프로파일 정반 가대",
-    prompt:
-      "레이저 마킹 설비 상판 95kg 하중 버티는 미스미 4545 알루미늄 프로파일 정반 프레임 가대 양산 원가절감형으로 구성해줘",
-  },
-});
-
-const MASKED_PROMPT_TEXT =
-  "보안 정책에 의해 비공개 블러 처리된 현장 자연어 설계 지시문입니다 [PRO 등급 이상 열람 가능]";
+const VAULT_STORAGE_KEY = "formech_project_vault_v6";
 
 const els = {
   gateView: document.getElementById("gateView"),
   studioView: document.getElementById("studioView"),
   navAuthArea: document.getElementById("navAuthArea"),
-  nlBlurToggleBtn: document.getElementById("nlBlurToggleBtn"),
-  nlBlurLabel: document.getElementById("nlBlurLabel"),
-  inlineNlBlurBtn: document.getElementById("inlineNlBlurBtn"),
+  openPricingModalBtn: document.getElementById("openPricingModalBtn"),
+  openQuoteModalBtn: document.getElementById("openQuoteModalBtn"),
   customerMaskToggleBtn: document.getElementById("customerMaskToggleBtn"),
   customerMaskLabel: document.getElementById("customerMaskLabel"),
   tierBadge: document.getElementById("tierBadge"),
   userLabel: document.getElementById("userLabel"),
   logoutBtn: document.getElementById("logoutBtn"),
+
+  demoPreviewBtn: document.getElementById("demoPreviewBtn"),
   inviteInput: document.getElementById("inviteInput"),
   loginBtn: document.getElementById("loginBtn"),
   gateMsg: document.getElementById("gateMsg"),
@@ -75,7 +42,6 @@ const els = {
   makeStatusDot: document.getElementById("makeStatusDot"),
   makeStatusText: document.getElementById("makeStatusText"),
   promptInput: document.getElementById("promptInput"),
-  promptBlurHint: document.getElementById("promptBlurHint"),
   micBtn: document.getElementById("micBtn"),
   micBtnLabel: document.getElementById("micBtnLabel"),
   solveBtn: document.getElementById("solveBtn"),
@@ -90,6 +56,7 @@ const els = {
   strokeValLabel: document.getElementById("strokeValLabel"),
   actuationSelect: document.getElementById("actuationSelect"),
   padSelect: document.getElementById("padSelect"),
+  workpieceMatSelect: document.getElementById("workpieceMatSelect"),
 
   designTitle: document.getElementById("designTitle"),
   designSubtitle: document.getElementById("designSubtitle"),
@@ -98,6 +65,8 @@ const els = {
   partInspectorPill: document.getElementById("partInspectorPill"),
   watermarkOverlay: document.getElementById("watermarkOverlay"),
   wireframeBtn: document.getElementById("wireframeBtn"),
+  envelopeBtn: document.getElementById("envelopeBtn"),
+  snapshotBtn: document.getElementById("snapshotBtn"),
   mobileExpandBtn: document.getElementById("mobileExpandBtn"),
   resetCamBtn: document.getElementById("resetCamBtn"),
 
@@ -107,6 +76,10 @@ const els = {
   explodeLabel: document.getElementById("explodeLabel"),
   autoCycleBtn: document.getElementById("autoCycleBtn"),
   workpieceToggleBtn: document.getElementById("workpieceToggleBtn"),
+
+  roiSavedKrw: document.getElementById("roiSavedKrw"),
+  roiSavedHours: document.getElementById("roiSavedHours"),
+  roiTurnkeyKrw: document.getElementById("roiTurnkeyKrw"),
 
   tabPhysics: document.getElementById("tabPhysics"),
   tabBom: document.getElementById("tabBom"),
@@ -127,8 +100,11 @@ const els = {
   priceFast: document.getElementById("priceFast"),
   priceCheap: document.getElementById("priceCheap"),
   bomTableBody: document.getElementById("bomTableBody"),
+  bomOpenQuoteBtn: document.getElementById("bomOpenQuoteBtn"),
   downloadBomBtn: document.getElementById("downloadBomBtn"),
 
+  saveToVaultBtn: document.getElementById("saveToVaultBtn"),
+  vaultListContainer: document.getElementById("vaultListContainer"),
   exportSpecJsonBtn: document.getElementById("exportSpecJsonBtn"),
   importSpecJsonBtn: document.getElementById("importSpecJsonBtn"),
   importSpecFileInput: document.getElementById("importSpecFileInput"),
@@ -142,12 +118,29 @@ const els = {
 
   downloadStepBtn: document.getElementById("downloadStepBtn"),
   exportMsg: document.getElementById("exportMsg"),
+
+  quoteModal: document.getElementById("quoteModal"),
+  quoteClientInput: document.getElementById("quoteClientInput"),
+  printQuoteBtn: document.getElementById("printQuoteBtn"),
+  closeQuoteModalBtn: document.getElementById("closeQuoteModalBtn"),
+  quoteSheetBody: document.getElementById("quoteSheetBody"),
+
+  pricingModal: document.getElementById("pricingModal"),
+  closePricingModalBtn: document.getElementById("closePricingModalBtn"),
+  pocMonthlySlider: document.getElementById("pocMonthlySlider"),
+  pocMonthlyCountLabel: document.getElementById("pocMonthlyCountLabel"),
+  pocAnnualSaveLabel: document.getElementById("pocAnnualSaveLabel"),
+  pocAnnualHoursLabel: document.getElementById("pocAnnualHoursLabel"),
+  pocLeadForm: document.getElementById("pocLeadForm"),
+  pocCompany: document.getElementById("pocCompany"),
+  pocManager: document.getElementById("pocManager"),
+  pocContact: document.getElementById("pocContact"),
+  pocPlanSelect: document.getElementById("pocPlanSelect"),
+  pocFormMsg: document.getElementById("pocFormMsg"),
 };
 
 let session = null;
 let simulateCustomerMask = false;
-let nlBlurEnabled = true; // 기본값: 자연어 보안 블러 즉시 활성화
-let rawPromptBuffer = PRESET_DICTIONARY.vblock.prompt;
 let currentDesign = null;
 let viewer = null;
 
@@ -159,6 +152,7 @@ let activeOverrides = {
   strokeMm: 24,
   actuation: "spring",
   padKey: "carbide_jaw",
+  workpieceMat: "sus304",
   priority: "best",
   shaftDia: null,
   springTierBoost: 0,
@@ -169,6 +163,7 @@ let recognition = null;
 let isAutoCycling = false;
 let isWorkpieceShown = true;
 let isWireframe = false;
+let isEnvelopeShown = false;
 let isMobileStageExpanded = false;
 
 function formatKrw(n) {
@@ -193,84 +188,8 @@ function getEffectiveTier() {
   return simulateCustomerMask ? "preview" : session.tier;
 }
 
-function isNaturalLanguageLockedByTier() {
-  return (TIER_LEVEL[getEffectiveTier()] || 0) < TIER_LEVEL.pro;
-}
-
-function isEffectiveNlBlurActive() {
-  return isNaturalLanguageLockedByTier() ? true : nlBlurEnabled;
-}
-
-/**
- * 자연어 프롬프트, 실무 프리셋 문구, 추론 로그, 서브타이틀 블러 및 DOM 텍스트 마스킹 동기화
- */
-function syncNaturalLanguageBlurState() {
-  const lockedByPreview = isNaturalLanguageLockedByTier();
-  const shouldBlur = isEffectiveNlBlurActive();
-
-  // 1. 프롬프트 입력창 평문 보호 및 블러 처리
-  if (lockedByPreview) {
-    els.promptInput.readOnly = true;
-    els.promptInput.value = MASKED_PROMPT_TEXT;
-    if (els.promptBlurHint) {
-      els.promptBlurHint.textContent = "자연어 설계 지시문 잠김 [PRO 전용]";
-      els.promptBlurHint.classList.remove("hidden");
-    }
-  } else {
-    els.promptInput.readOnly = false;
-    if (document.activeElement !== els.promptInput) {
-      els.promptInput.value = rawPromptBuffer;
-    }
-    if (els.promptBlurHint) {
-      els.promptBlurHint.textContent = "자연어 블러 보호 중 · 클릭 시 입력";
-      els.promptBlurHint.classList.toggle("hidden", !shouldBlur);
-    }
-  }
-
-  // 2. 프리셋 자연어 문구 DOM 텍스트 보호
-  document.querySelectorAll(".preset-row").forEach((row) => {
-    const key = row.dataset.preset;
-    const span = row.querySelector(".preset-nl-text");
-    if (!span || !PRESET_DICTIONARY[key]) return;
-    span.textContent = lockedByPreview
-      ? "현업 공정 자연어 사양 비공개 보호됨 [PRO]"
-      : PRESET_DICTIONARY[key].label;
-  });
-
-  // 3. 모든 .nl-target 요소에 가우시안 블러 클래스 일괄 반영
-  document.querySelectorAll(".nl-target").forEach((node) => {
-    node.classList.toggle("nl-blurred", shouldBlur);
-  });
-
-  // 4. 상단 및 인라인 토글 버튼 상태 업데이트
-  if (els.nlBlurToggleBtn && els.nlBlurLabel) {
-    els.nlBlurToggleBtn.classList.toggle("active-blur-pill", shouldBlur);
-    els.nlBlurLabel.textContent = lockedByPreview
-      ? "자연어 잠김"
-      : shouldBlur
-      ? "자연어 블러 ON"
-      : "자연어 표시 중";
-  }
-  if (els.inlineNlBlurBtn) {
-    els.inlineNlBlurBtn.textContent = lockedByPreview
-      ? "자연어 잠김 [PRO]"
-      : shouldBlur
-      ? "자연어 블러 ON"
-      : "자연어 블러 OFF";
-  }
-}
-
-function toggleNaturalLanguageBlur() {
-  if (isNaturalLanguageLockedByTier()) {
-    showBanner(
-      els.exportMsg,
-      "현재 고객 열람(Preview) 시점에서는 자연어 프롬프트 및 실무 사양 블러를 해제할 수 없습니다.",
-      true
-    );
-    return;
-  }
-  nlBlurEnabled = !nlBlurEnabled;
-  syncNaturalLanguageBlurState();
+function isProUnlocked() {
+  return (TIER_LEVEL[getEffectiveTier()] || 0) >= TIER_LEVEL.pro;
 }
 
 function getSavedMakeUrl() {
@@ -331,6 +250,7 @@ function enterStudio(authSession) {
 
   updateHeaderAuthState();
   updateMakeIndicator();
+  renderVaultItems();
 
   if (!viewer) {
     viewer = new EngineeringCadStudioViewer({
@@ -341,11 +261,9 @@ function enterStudio(authSession) {
           els.partInspectorPill.classList.add("hidden");
           return;
         }
-        const effTier = getEffectiveTier();
-        const codeInfo =
-          TIER_LEVEL[effTier] >= TIER_LEVEL.pro
-            ? part.stepName
-            : "STEP-ID [PRO 전용]";
+        const codeInfo = isProUnlocked()
+          ? part.stepName
+          : "STEP-ID [PRO 공개]";
         els.partInspectorPill.innerHTML = `
           <div style="font-weight:700;color:#38bdf8;">${escapeHtml(part.labelKo)}</div>
           <div class="num" style="color:#cbd5e1;margin-top:2px;">재질: ${escapeHtml(part.material || "표준합금")} · ID: ${escapeHtml(codeInfo)}</div>
@@ -362,21 +280,26 @@ function enterStudio(authSession) {
     viewer.resize();
   }
 
-  syncNaturalLanguageBlurState();
+  if (!els.promptInput.value.trim()) {
+    els.promptInput.value =
+      "원통 서스 파이프 Ø42 CNC 드릴링 치는데 절삭부하 45kgf 걸려도 회전 안 하게 90도 브이블록 상부 가압 지그 짜줘";
+  }
   executePromptSolve();
 }
 
 function updateHeaderAuthState() {
   const effTier = getEffectiveTier();
   els.tierBadge.className = `tier-chip tier-${effTier}`;
-  els.tierBadge.textContent = simulateCustomerMask
+  els.tierBadge.textContent = session?.isDemoGuest
+    ? "DEMO SANDBOX"
+    : simulateCustomerMask
     ? "PREVIEW · MASK"
     : effTier.toUpperCase();
   els.userLabel.textContent = session?.userId || "";
   if (els.customerMaskLabel) {
     els.customerMaskLabel.textContent = simulateCustomerMask
       ? "전체공개 복귀"
-      : "고객 시점 마스킹";
+      : "고객 시점";
   }
 }
 
@@ -389,6 +312,7 @@ function syncControlsFromParams(p) {
     strokeMm: p.strokeMm,
     actuation: p.actuation,
     padKey: p.padKey,
+    workpieceMat: p.workpieceMat || "al6061",
     priority: p.priority,
     shaftDia: p.shaftDiameterOverride || null,
     springTierBoost: p.springTierBoost || 0,
@@ -408,6 +332,9 @@ function syncControlsFromParams(p) {
 
   els.actuationSelect.value = p.actuation;
   els.padSelect.value = p.padKey;
+  if (els.workpieceMatSelect) {
+    els.workpieceMatSelect.value = p.workpieceMat || "al6061";
+  }
 
   document.querySelectorAll(".mech-pill").forEach((b) => {
     b.classList.toggle("active", b.dataset.mech === p.mechanismType);
@@ -421,13 +348,7 @@ function syncControlsFromParams(p) {
 async function executePromptSolve() {
   els.exportMsg.innerHTML = "";
   els.partInspectorPill.classList.add("hidden");
-
-  if (!isNaturalLanguageLockedByTier() && els.promptInput.value.trim() && els.promptInput.value !== MASKED_PROMPT_TEXT) {
-    rawPromptBuffer = els.promptInput.value.trim();
-  }
-  els.promptInput.blur(); // 해석 실행 직후 자연어 입력창 포커스를 해제하여 즉시 블러 보호 복귀
-
-  const promptText = rawPromptBuffer;
+  const promptText = els.promptInput.value.trim();
 
   let makeOverrides = {};
   const makeUrl = getSavedMakeUrl();
@@ -463,7 +384,7 @@ async function executePromptSolve() {
 
 function executeSliderSolve() {
   els.exportMsg.innerHTML = "";
-  currentDesign = generateRealCadEngineering(rawPromptBuffer, activeOverrides);
+  currentDesign = generateRealCadEngineering(els.promptInput.value, activeOverrides);
   renderAllPanels();
 }
 
@@ -471,7 +392,6 @@ function renderAllPanels() {
   if (!currentDesign) return;
   const effTier = getEffectiveTier();
   const view = redactEngineeringResult(currentDesign, effTier);
-  const shouldBlur = isEffectiveNlBlurActive();
 
   els.designTitle.textContent = `${view.titleKo} (${view.dims.w}×${view.dims.d}×${view.dims.h}mm)`;
   els.designSubtitle.textContent = view.subtitleKo;
@@ -483,6 +403,14 @@ function renderAllPanels() {
   viewer.setStrokeRatio(sRatio);
   updateStrokeTelemetry(sRatio);
 
+  // 상단 B2B ROI 요약 배너 업데이트
+  if (currentDesign.b2bMetrics) {
+    const bm = currentDesign.b2bMetrics;
+    els.roiSavedKrw.textContent = formatKrw(bm.netDesignSavingsKrw);
+    els.roiSavedHours.textContent = `${bm.manualDesignHours}h → 3m`;
+    els.roiTurnkeyKrw.textContent = formatKrw(bm.turnkeyTotalKrw);
+  }
+
   // KPI 업데이트
   const ph = view.physics;
   els.kpiDynLoad.textContent = `${ph.dynamicLoadN.toLocaleString("ko-KR")} N`;
@@ -492,19 +420,19 @@ function renderAllPanels() {
   els.kpiSafety.style.color =
     ph.safetyFactor >= 2.0 ? "#10b981" : ph.safetyFactor >= 1.3 ? "#f59e0b" : "#ef4444";
 
-  // 물리 임계치 초과 경보 & 1클릭 자동 보강 노출
+  // 물리·모재 임계치 초과 경보 & 1클릭 자동 보강 노출
   const failedLimits = currentDesign.criticalLimits.filter((l) => l.pct >= 85);
   if (failedLimits.length > 0) {
     const msgs = failedLimits
       .map((l) => l.warningMsg || `${l.title} 임계 근접(${l.pct}%)`)
       .join(" / ");
-    els.reinforceWarningText.textContent = `물리 한계 경고: ${msgs}`;
+    els.reinforceWarningText.textContent = `물리·모재 한계 경고: ${msgs}`;
     els.reinforceAlertBox.classList.remove("hidden");
   } else {
     els.reinforceAlertBox.classList.add("hidden");
   }
 
-  // 4대 재료역학 임계 바 렌더링
+  // 5대 재료역학 및 피가공물 압흔 임계 바 렌더링
   els.limitCardsContainer.innerHTML = "";
   for (const lim of currentDesign.criticalLimits) {
     const card = document.createElement("div");
@@ -533,7 +461,7 @@ function renderAllPanels() {
     els.limitCardsContainer.appendChild(card);
   }
 
-  // AI 수석 설계 추론 로그 렌더링 (자연어 문장에 블러 클래스 연동)
+  // AI 수석 설계 추론 로그 렌더링 (선명한 가독성)
   if (els.reasoningList) {
     els.reasoningList.innerHTML = "";
     const steps = view.reasoningSteps || [];
@@ -542,7 +470,7 @@ function renderAllPanels() {
       row.className = "reason-step";
       row.innerHTML = `
         <span class="reason-idx">0${idx + 1}</span>
-        <span class="nl-target ${shouldBlur ? "nl-blurred" : ""}">${escapeHtml(stepText)}</span>
+        <span>${escapeHtml(stepText)}</span>
       `;
       els.reasoningList.appendChild(row);
     });
@@ -563,7 +491,7 @@ function renderAllPanels() {
     c.classList.toggle("active", c.dataset.prio === activeOverrides.priority);
   });
 
-  // BOM 테이블 렌더링 (행 클릭 시 3D 파트 하이라이트 연동)
+  // BOM 테이블 렌더링
   els.bomTableBody.innerHTML = "";
   for (const row of view.bom) {
     const tr = document.createElement("tr");
@@ -571,7 +499,7 @@ function renderAllPanels() {
     const skuClass = view.isRedacted ? "sku-badge sku-locked" : "sku-badge";
     const costText =
       row.totalPriceKrw === null
-        ? `<span style="color:#fcd34d;">비공개</span>`
+        ? `<span style="color:#fcd34d;">PRO 공개</span>`
         : formatKrw(row.totalPriceKrw);
 
     tr.innerHTML = `
@@ -598,8 +526,6 @@ function renderAllPanels() {
     });
     els.bomTableBody.appendChild(tr);
   }
-
-  syncNaturalLanguageBlurState();
 }
 
 function updateStrokeTelemetry(ratio01) {
@@ -610,20 +536,23 @@ function updateStrokeTelemetry(ratio01) {
   els.simStrokeLabel.textContent = `${pct}% · ${liveF.toFixed(1)} N`;
 }
 
+function promptUpgradeModal(reasonText) {
+  showBanner(els.exportMsg, reasonText, true);
+  openPricingModal();
+}
+
 async function handleExportStep() {
   if (!currentDesign) return;
-  const effTier = getEffectiveTier();
-  if ((TIER_LEVEL[effTier] || 0) < TIER_LEVEL.pro) {
-    showBanner(
-      els.exportMsg,
-      "현재 고객 열람(Preview) 시점에서는 핵심 설계 보호를 위해 .STEP 추출이 차단되어 있습니다. (PRO 이상 승인 필요)",
-      true
+  if (!isProUnlocked()) {
+    promptUpgradeModal(
+      "무료 데모(Preview) 시점에서는 .STEP 원본 추출이 잠겨 있습니다. PRO 구독 또는 14일 무상 실증(PoC)을 신청해 주세요."
     );
     return;
   }
 
   els.downloadStepBtn.disabled = true;
   try {
+    const effTier = getEffectiveTier();
     const seed = `${session.userId}|${currentDesign.projectId}|${Date.now()}`;
     const hash = await sha256HexWeb(seed);
     const watermarkId = "WMK-" + hash.slice(0, 10).toUpperCase();
@@ -666,9 +595,8 @@ async function handleExportStep() {
 
 function handleExportBomCsv() {
   if (!currentDesign) return;
-  const effTier = getEffectiveTier();
-  if ((TIER_LEVEL[effTier] || 0) < TIER_LEVEL.pro) {
-    showBanner(els.exportMsg, "미스미 구매 형번이 포함된 BOM 추출은 PRO 이상 등급에서만 허용됩니다.", true);
+  if (!isProUnlocked()) {
+    promptUpgradeModal("미스미 실형번·단가가 포함된 발주용 CSV 추출은 PRO 시트에서 활성화됩니다.");
     return;
   }
 
@@ -704,19 +632,267 @@ function handleExportBomCsv() {
   showBanner(els.exportMsg, "미스미(MISUMI) 발주 규격서(.CSV)를 다운로드했습니다.");
 }
 
-// GitHub 무설정 사양 허브: .formech.json 저장 / 불러오기 / 요약 복사
-function handleExportSpecJson() {
-  if (!currentDesign) return;
-  if (isNaturalLanguageLockedByTier()) {
-    showBanner(els.makeMsg, "자연어 설계 사양이 포함된 .JSON 저장은 PRO 이상 등급에서만 허용됩니다.", true);
+function handleCaptureSnapshot() {
+  if (!currentDesign || !viewer) return;
+  if (!isProUnlocked()) {
+    promptUpgradeModal("제안서용 고해상도 3D 스냅샷(.PNG) 추출은 PRO 시트 이상에서 지원됩니다.");
     return;
   }
-  const specPayload = {
-    schema: "formech-cae-spec-v5",
+  const dataUrl = viewer.captureProposalSnapshotDataUrl({
+    titleText: `${currentDesign.titleKo} (${currentDesign.dims.w}×${currentDesign.dims.d}×${currentDesign.dims.h}mm)`,
+    metaText: `DWG: ${currentDesign.projectId} · SAFETY ${currentDesign.physics.safetyFactor}x · STAMP: ${session.userId}`,
+  });
+  const a = document.createElement("a");
+  a.href = dataUrl;
+  a.download = `${currentDesign.projectId}_PROPOSAL_3D.png`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  showBanner(els.exportMsg, "제안서·품의서 첨부용 3D 스냅샷(.PNG)을 저장했습니다.");
+}
+
+// ============================================================================
+// 공식 A4 B2B 기술검토 승인서 & 표준 원가 견적서 (PDF 인쇄 대응)
+// ============================================================================
+function renderQuoteDocument() {
+  if (!currentDesign || !els.quoteSheetBody) return;
+  const effTier = getEffectiveTier();
+  const view = redactEngineeringResult(currentDesign, effTier);
+  const bm = currentDesign.b2bMetrics;
+  const today = new Date().toISOString().slice(0, 10);
+  const docNo = `QT-${today.replace(/-/g, "")}-${view.projectId}`;
+  const clientName = els.quoteClientInput?.value.trim() || "귀사 생산기술·구매팀 귀중";
+
+  const limitRowsHtml = currentDesign.criticalLimits
+    .map((l) => {
+      const passBadge =
+        l.status === "SAFE"
+          ? `<strong style="color:#059669;">적합 (PASS · ${l.pct}%)</strong>`
+          : l.status === "CAUTION"
+          ? `<strong style="color:#d97706;">주의 (${l.pct}%)</strong>`
+          : `<strong style="color:#dc2626;">보강필요 (${l.pct}%)</strong>`;
+      return `
+        <tr>
+          <td>${escapeHtml(l.title)}</td>
+          <td>${escapeHtml(l.materialSpec)}</td>
+          <td>${escapeHtml(l.currentText)} / 허용 ${escapeHtml(l.limitText)}</td>
+          <td>${passBadge}</td>
+        </tr>
+      `;
+    })
+    .join("");
+
+  const bomRowsHtml = view.bom
+    .map((r) => {
+      const unitStr = r.unitPriceKrw === null ? "[PRO 공개]" : formatKrw(r.unitPriceKrw);
+      const sumStr = r.totalPriceKrw === null ? "[PRO 공개]" : formatKrw(r.totalPriceKrw);
+      return `
+        <tr>
+          <td>${r.no}</td>
+          <td>${escapeHtml(r.partName)}</td>
+          <td style="font-family:monospace;font-weight:700;">${escapeHtml(r.partNumber)}</td>
+          <td>${r.qty}</td>
+          <td>${escapeHtml(r.leadTime)}</td>
+          <td style="text-align:right;">${unitStr}</td>
+          <td style="text-align:right;font-weight:700;">${sumStr}</td>
+        </tr>
+      `;
+    })
+    .join("");
+
+  els.quoteSheetBody.innerHTML = `
+    <div class="q-doc-header">
+      <div>
+        <div style="font-size:11px;font-weight:700;color:#2563eb;letter-spacing:0.06em;">FORMECH CAE ENGINEERING &amp; QUOTATION</div>
+        <div class="q-doc-title">치공구 기술검토 승인서 및 표준 제작 견적서</div>
+        <div style="font-size:12px;color:#475569;margin-top:4px;">수신: <strong>${escapeHtml(clientName)}</strong></div>
+      </div>
+      <div style="text-align:right;font-size:11.5px;color:#334155;line-height:1.6;">
+        <div><strong>문서번호:</strong> ${escapeHtml(docNo)}</div>
+        <div><strong>도면번호:</strong> ${escapeHtml(view.projectId)}</div>
+        <div><strong>발행일자:</strong> ${today}</div>
+      </div>
+    </div>
+
+    <div class="q-grid-2">
+      <div class="q-box">
+        <div style="font-weight:700;margin-bottom:4px;">1. 설계 어셈블리 개요</div>
+        <div>• 품명: <strong>${escapeHtml(view.titleKo)}</strong></div>
+        <div>• 외곽 치수(L×W×H): ${view.dims.w} × ${view.dims.d} × ${view.dims.h} mm</div>
+        <div>• 적용 공차: ${escapeHtml(view.drawingSpec.tolerance)}</div>
+        <div>• 파일 규격: ISO-10303-21 AP214 (.STEP)</div>
+      </div>
+      <div class="q-box">
+        <div style="font-weight:700;margin-bottom:4px;">2. 총괄 납품 견적 요약 (VAT 10% 포함)</div>
+        <div>• 표준품·가공비 소계: <strong>${formatKrw(bm.selectedPartsKrw)}</strong></div>
+        <div>• 정밀 조립·셋업 공임: <strong>${formatKrw(bm.assemblySetupFeeKrw)}</strong></div>
+        <div>• 부가가치세 (10%): ${formatKrw(bm.vatKrw)}</div>
+        <div style="font-size:14px;color:#1d4ed8;margin-top:3px;">• <strong>총 합계금액: ${formatKrw(bm.turnkeyTotalKrw)}</strong></div>
+      </div>
+    </div>
+
+    <div style="font-size:12.5px;font-weight:800;margin-bottom:6px;">제1절. 고체역학 및 피가공물 표면 보호 적합성 판정 (g = 9.807 m/s²)</div>
+    <table class="q-table">
+      <thead>
+        <tr>
+          <th>검증 항목</th>
+          <th>적용 재질 · 기준</th>
+          <th>해석치 / 임계 허용치</th>
+          <th>적합 판정</th>
+        </tr>
+      </thead>
+      <tbody>${limitRowsHtml}</tbody>
+    </table>
+
+    <div style="font-size:12.5px;font-weight:800;margin-bottom:6px;">제2절. 표준 부품(MISUMI) 및 정밀 가공품 원가 명세표</div>
+    <table class="q-table">
+      <thead>
+        <tr>
+          <th>No</th>
+          <th>품명</th>
+          <th>규격 / 형번</th>
+          <th>수량</th>
+          <th>표준납기</th>
+          <th style="text-align:right;">단가</th>
+          <th style="text-align:right;">금액</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${bomRowsHtml}
+        <tr>
+          <td colspan="6" style="text-align:right;font-weight:700;">조립·정밀 측정 셋업비</td>
+          <td style="text-align:right;font-weight:700;">${formatKrw(bm.assemblySetupFeeKrw)}</td>
+        </tr>
+        <tr>
+          <td colspan="6" style="text-align:right;font-weight:800;background:#f1f5f9;">부가세 포함 최종 납품 합계 (VAT 포함)</td>
+          <td style="text-align:right;font-weight:800;background:#f1f5f9;color:#1d4ed8;">${formatKrw(bm.turnkeyTotalKrw)}</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="q-box" style="display:flex;justify-content:space-between;align-items:center;font-size:11.5px;">
+      <div>
+        <strong>도입 경제성(ROI) 검토 소견:</strong> 기존 수작업 외주 설계(약 ${bm.manualDesignHours} M/H · 평균 ${formatKrw(bm.outsourcedDesignFeeKrw)}) 대비 초기 설계비 <strong>${formatKrw(bm.netDesignSavingsKrw)} 절감</strong> 및 발주 리드타임 <strong>${bm.leadTimeSavedDays}일 단축</strong> 효과가 확인됨.
+      </div>
+      <div style="font-weight:800;color:#059669;white-space:nowrap;margin-left:12px;">FORMECH CAE 검증필</div>
+    </div>
+  `;
+}
+
+function openQuoteModal() {
+  renderQuoteDocument();
+  els.quoteModal.classList.remove("hidden");
+}
+
+function openPricingModal() {
+  updateRoiSimulator();
+  els.pricingModal.classList.remove("hidden");
+}
+
+function updateRoiSimulator() {
+  const monthly = Number(els.pocMonthlySlider?.value || 8);
+  if (els.pocMonthlyCountLabel) els.pocMonthlyCountLabel.textContent = `월 ${monthly}건 설계`;
+  // 건당 평균 외주 설계비 85만 원 × 12개월 - PRO 월 구독료 19만 원 × 12개월
+  const grossSaved = monthly * 850000 * 12;
+  const subCost = 190000 * 12;
+  const netSaved = Math.max(0, grossSaved - subCost);
+  const savedHours = monthly * 22 * 12;
+  if (els.pocAnnualSaveLabel) els.pocAnnualSaveLabel.textContent = `${formatKrw(netSaved)} / 년`;
+  if (els.pocAnnualHoursLabel) els.pocAnnualHoursLabel.textContent = `${savedHours.toLocaleString("ko-KR")} M/H 단축`;
+}
+
+// ============================================================================
+// 다중 설계안 비교 보관함 (Project History Vault)
+// ============================================================================
+function loadVaultList() {
+  try {
+    const raw = localStorage.getItem(VAULT_STORAGE_KEY);
+    const arr = raw ? JSON.parse(raw) : [];
+    return Array.isArray(arr) ? arr : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveVaultList(list) {
+  try {
+    localStorage.setItem(VAULT_STORAGE_KEY, JSON.stringify(list.slice(0, 12)));
+  } catch {}
+}
+
+function renderVaultItems() {
+  if (!els.vaultListContainer) return;
+  const items = loadVaultList();
+  if (items.length === 0) {
+    els.vaultListContainer.innerHTML = `<div style="font-size:11px;color:#64748b;padding:4px 0;">보관된 비교 설계안이 없습니다. 상단 [+ 현재 설계안 보관]을 눌러 저장하세요.</div>`;
+    return;
+  }
+
+  els.vaultListContainer.innerHTML = "";
+  items.forEach((item, idx) => {
+    const div = document.createElement("div");
+    div.className = "vault-item";
+    div.innerHTML = `
+      <div style="min-width:0;">
+        <div class="vault-item-title">${escapeHtml(item.titleKo)}</div>
+        <div class="vault-item-meta">${escapeHtml(item.projectId)} · 안전율 ${item.safetyFactor}x · ${formatKrw(item.turnkeyTotalKrw)}</div>
+      </div>
+      <div style="display:flex;gap:4px;flex-shrink:0;">
+        <button class="btn btn-compact" type="button" data-vload="${idx}">복원</button>
+        <button class="btn btn-compact" type="button" data-vdel="${idx}">삭제</button>
+      </div>
+    `;
+    els.vaultListContainer.appendChild(div);
+  });
+
+  els.vaultListContainer.querySelectorAll("[data-vload]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const item = loadVaultList()[Number(btn.dataset.vload)];
+      if (!item) return;
+      els.promptInput.value = item.prompt || "";
+      currentDesign = generateRealCadEngineering(els.promptInput.value, item.overrides || {});
+      syncControlsFromParams(currentDesign.params);
+      renderAllPanels();
+      showBanner(els.makeMsg, `보관함 설계안 복원 완료: ${currentDesign.titleKo}`);
+    });
+  });
+
+  els.vaultListContainer.querySelectorAll("[data-vdel]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const list = loadVaultList();
+      list.splice(Number(btn.dataset.vdel), 1);
+      saveVaultList(list);
+      renderVaultItems();
+    });
+  });
+}
+
+function handleSaveToVault() {
+  if (!currentDesign) return;
+  const list = loadVaultList();
+  list.unshift({
     savedAt: new Date().toISOString(),
     projectId: currentDesign.projectId,
     titleKo: currentDesign.titleKo,
-    prompt: isEffectiveNlBlurActive() ? "[BLUR_PROTECTED]" : rawPromptBuffer,
+    safetyFactor: currentDesign.physics.safetyFactor,
+    turnkeyTotalKrw: currentDesign.b2bMetrics.turnkeyTotalKrw,
+    prompt: els.promptInput.value.trim(),
+    overrides: { ...activeOverrides },
+  });
+  saveVaultList(list);
+  renderVaultItems();
+  showBanner(els.makeMsg, `현재 설계안(${currentDesign.projectId})을 비교 보관함에 저장했습니다.`);
+}
+
+// GitHub 무설정 사양 허브: .formech.json 저장 / 불러오기 / 요약 복사
+function handleExportSpecJson() {
+  if (!currentDesign) return;
+  const specPayload = {
+    schema: "formech-cae-spec-v6",
+    savedAt: new Date().toISOString(),
+    projectId: currentDesign.projectId,
+    titleKo: currentDesign.titleKo,
+    prompt: els.promptInput.value.trim(),
     overrides: { ...activeOverrides },
   };
   const blob = new Blob([JSON.stringify(specPayload, null, 2)], {
@@ -743,10 +919,10 @@ function handleImportSpecFile(ev) {
       if (!parsed || typeof parsed !== "object" || !parsed.overrides) {
         throw new Error("INVALID_SPEC");
       }
-      if (typeof parsed.prompt === "string" && parsed.prompt.trim() && parsed.prompt !== "[BLUR_PROTECTED]") {
-        rawPromptBuffer = parsed.prompt.trim();
+      if (typeof parsed.prompt === "string" && parsed.prompt.trim()) {
+        els.promptInput.value = parsed.prompt;
       }
-      currentDesign = generateRealCadEngineering(rawPromptBuffer, parsed.overrides);
+      currentDesign = generateRealCadEngineering(els.promptInput.value, parsed.overrides);
       syncControlsFromParams(currentDesign.params);
       renderAllPanels();
       showBanner(els.makeMsg, `사양 복원 완료: ${currentDesign.titleKo}`);
@@ -763,17 +939,18 @@ async function handleCopySpecSummary() {
   if (!currentDesign) return;
   const effTier = getEffectiveTier();
   const view = redactEngineeringResult(currentDesign, effTier);
+  const bm = currentDesign.b2bMetrics;
   const lines = [
-    `[FORMECH CAE V5 설계 검토 요약]`,
+    `[FORMECH CAE V6 설계 검토 & 견적 요약]`,
     `• 도면번호: ${view.projectId}`,
     `• 어셈블리: ${view.titleKo} (${view.dims.w}×${view.dims.d}×${view.dims.h}mm)`,
     `• 동적부하: ${view.physics.dynamicLoadN} N (정하중 ${view.physics.loadKg}kgf, 가감속 ${view.physics.accelG}G)`,
-    `• 클램핑력: ${view.physics.actuatorForceN} N · 안전율 ${view.physics.safetyFactor}x`,
-    `• 표준견적: ${formatKrw(view.costComparison.best.totalKrw)} (C-Value 양산형 ${formatKrw(view.costComparison.cheap.totalKrw)})`,
+    `• 클램핑력: ${view.physics.actuatorForceN} N · 안전율 ${view.physics.safetyFactor}x · 접촉면압 ${view.physics.contactPressureMpa}MPa`,
+    `• 턴키 예상가(VAT 포함): ${formatKrw(bm.turnkeyTotalKrw)} (외주 설계비 절감 ${formatKrw(bm.netDesignSavingsKrw)})`,
   ];
   try {
     await navigator.clipboard.writeText(lines.join("\n"));
-    showBanner(els.makeMsg, "설계 검토 요약서를 클립보드에 복사했습니다.");
+    showBanner(els.makeMsg, "설계 검토 및 견적 요약서를 클립보드에 복사했습니다.");
   } catch {
     showBanner(els.makeMsg, "브라우저 클립보드 권한을 확인해 주세요.", true);
   }
@@ -781,10 +958,6 @@ async function handleCopySpecSummary() {
 
 // 음성 지시 입력
 function toggleVoice() {
-  if (isNaturalLanguageLockedByTier()) {
-    showBanner(els.exportMsg, "고객 열람(Preview) 시점에서는 음성 프롬프트 입력이 제한됩니다.", true);
-    return;
-  }
   const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!SpeechRec) {
     showBanner(els.exportMsg, "음성 인식은 Chrome, Edge 또는 최신 모바일 브라우저에서 지원됩니다.", true);
@@ -809,7 +982,6 @@ function toggleVoice() {
   recognition.onresult = (ev) => {
     let txt = "";
     for (let i = 0; i < ev.results.length; i++) txt += ev.results[i][0].transcript;
-    rawPromptBuffer = txt;
     els.promptInput.value = txt;
   };
   recognition.onerror = () => {
@@ -824,12 +996,16 @@ function toggleVoice() {
 async function handleLogin() {
   const verified = await verifyInviteCodeClient(els.inviteInput.value);
   if (!verified) {
-    showBanner(els.gateMsg, "유효하지 않은 초대코드입니다.", true);
+    showBanner(els.gateMsg, "유효하지 않은 라이선스 코드입니다. 바이어 체험은 좌측 [무료 데모 입장]을 이용해 주세요.", true);
     return;
   }
   els.gateMsg.innerHTML = "";
   enterStudio(verified);
 }
+
+els.demoPreviewBtn?.addEventListener("click", () => {
+  enterStudio(createDemoBuyerSession());
+});
 
 els.loginBtn.addEventListener("click", handleLogin);
 els.inviteInput.addEventListener("keydown", (e) => {
@@ -845,19 +1021,6 @@ els.logoutBtn.addEventListener("click", () => {
   els.gateView.classList.remove("hidden");
 });
 
-els.nlBlurToggleBtn?.addEventListener("click", toggleNaturalLanguageBlur);
-els.inlineNlBlurBtn?.addEventListener("click", toggleNaturalLanguageBlur);
-
-els.promptInput.addEventListener("input", () => {
-  if (!isNaturalLanguageLockedByTier() && els.promptInput.value !== MASKED_PROMPT_TEXT) {
-    rawPromptBuffer = els.promptInput.value;
-  }
-});
-
-els.promptInput.addEventListener("blur", () => {
-  syncNaturalLanguageBlurState();
-});
-
 els.customerMaskToggleBtn.addEventListener("click", () => {
   simulateCustomerMask = !simulateCustomerMask;
   updateHeaderAuthState();
@@ -869,13 +1032,7 @@ els.micBtn.addEventListener("click", toggleVoice);
 
 document.querySelectorAll(".preset-row").forEach((btn) => {
   btn.addEventListener("click", () => {
-    const key = btn.dataset.preset;
-    const preset = PRESET_DICTIONARY[key];
-    if (!preset) return;
-    rawPromptBuffer = preset.prompt;
-    if (!isNaturalLanguageLockedByTier()) {
-      els.promptInput.value = preset.prompt;
-    }
+    els.promptInput.value = btn.dataset.prompt || "";
     executePromptSolve();
   });
 });
@@ -925,27 +1082,29 @@ els.padSelect.addEventListener("change", (e) => {
   executeSliderSolve();
 });
 
-// 물리 임계치 초과 시 1클릭 AI 자동 강성·사양 보강
+els.workpieceMatSelect?.addEventListener("change", (e) => {
+  activeOverrides.workpieceMat = e.target.value;
+  executeSliderSolve();
+});
+
 els.autoReinforceBtn.addEventListener("click", () => {
   if (!currentDesign) return;
   const upgraded = computeAutoReinforcedParams(currentDesign);
-  currentDesign = generateRealCadEngineering(rawPromptBuffer, upgraded);
+  currentDesign = generateRealCadEngineering(els.promptInput.value, upgraded);
   syncControlsFromParams(currentDesign.params);
   renderAllPanels();
   showBanner(
     els.exportMsg,
-    "물리 임계치 보강 완료: 가이드축 직경·스프링 물성·구동 배력을 안전 한계 이내로 자동 승격했습니다."
+    "물리·모재 임계치 보강 완료: 가이드축 직경·접촉 보호 패드·구동 배력을 안전 범위로 자동 승격했습니다."
   );
 });
 
-// 데스크톱 우측 3탭 전환
 document.querySelectorAll(".seg-tab").forEach((tab) => {
   tab.addEventListener("click", () => {
     setInspectorTab(tab.dataset.tab);
   });
 });
 
-// 모바일 하단 4탭 네이티브 시트 전환
 document.querySelectorAll(".m-nav-btn").forEach((btn) => {
   btn.addEventListener("click", () => {
     setMobileWorkspaceTab(btn.dataset.mnav);
@@ -959,7 +1118,8 @@ document.querySelectorAll(".tier-card").forEach((card) => {
   });
 });
 
-// GitHub 사양 허브 & Make.com 연동 이벤트
+// 보관함 · 사양 허브 · Make 이벤트
+els.saveToVaultBtn?.addEventListener("click", handleSaveToVault);
 els.exportSpecJsonBtn?.addEventListener("click", handleExportSpecJson);
 els.importSpecJsonBtn?.addEventListener("click", () => els.importSpecFileInput?.click());
 els.importSpecFileInput?.addEventListener("change", handleImportSpecFile);
@@ -973,14 +1133,14 @@ els.saveMakeUrlBtn.addEventListener("click", async () => {
   }
   localStorage.setItem("formech_make_webhook", url);
   updateMakeIndicator();
-  showBanner(els.makeMsg, "Make.com 웹훅이 연결되었습니다. 이제 프롬프트 입력 시 Make 시나리오와 실시간 통신합니다.");
+  showBanner(els.makeMsg, "Make.com 웹훅이 연결되었습니다.");
 });
 
 els.clearMakeUrlBtn.addEventListener("click", () => {
   localStorage.removeItem("formech_make_webhook");
   els.makeWebhookInput.value = "";
   updateMakeIndicator();
-  showBanner(els.makeMsg, "Make 웹훅을 해제하고 GitHub 내장 고속 CAE 솔버 모드로 전환했습니다.");
+  showBanner(els.makeMsg, "Make 웹훅을 해제하고 내장 고속 CAE 솔버 모드로 전환했습니다.");
 });
 
 els.downloadMakeBpBtn.addEventListener("click", () => {
@@ -989,15 +1149,64 @@ els.downloadMakeBpBtn.addEventListener("click", () => {
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = "formech-v5-make-scenario-blueprint.json";
+  a.download = "formech-v6-make-scenario-blueprint.json";
   document.body.appendChild(a);
   a.click();
   a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 2000);
-  showBanner(els.makeMsg, "8종 기구 대응 Make.com 시나리오 블루프린트(.JSON)가 다운로드되었습니다.");
+  showBanner(els.makeMsg, "Make.com 시나리오 블루프린트(.JSON)가 다운로드되었습니다.");
 });
 
-// 뷰포트 모드·카메라·와이어프레임·모바일 확장 컨트롤
+// 모달 바인딩 (품의 견적서 & 요금제/PoC)
+els.openQuoteModalBtn?.addEventListener("click", openQuoteModal);
+els.bomOpenQuoteBtn?.addEventListener("click", openQuoteModal);
+els.closeQuoteModalBtn?.addEventListener("click", () => els.quoteModal.classList.add("hidden"));
+els.quoteClientInput?.addEventListener("input", renderQuoteDocument);
+els.printQuoteBtn?.addEventListener("click", () => window.print());
+
+els.openPricingModalBtn?.addEventListener("click", openPricingModal);
+els.closePricingModalBtn?.addEventListener("click", () => els.pricingModal.classList.add("hidden"));
+els.pocMonthlySlider?.addEventListener("input", updateRoiSimulator);
+
+els.pocLeadForm?.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const receiptId = "POC-" + Math.floor(100000 + Math.random() * 900000);
+  const payload = {
+    type: "B2B_POC_REQUEST",
+    receiptId,
+    company: els.pocCompany.value.trim(),
+    manager: els.pocManager.value.trim(),
+    contact: els.pocContact.value.trim(),
+    plan: els.pocPlanSelect.value,
+    monthlyJigs: Number(els.pocMonthlySlider.value),
+    submittedAt: new Date().toISOString(),
+  };
+
+  try {
+    const leads = JSON.parse(localStorage.getItem("formech_poc_leads_v6") || "[]");
+    leads.unshift(payload);
+    localStorage.setItem("formech_poc_leads_v6", JSON.stringify(leads.slice(0, 20)));
+  } catch {}
+
+  const makeUrl = getSavedMakeUrl();
+  if (makeUrl && /^https:\/\/hook\.[a-z0-9-]+\.make\.com\//i.test(makeUrl)) {
+    try {
+      await fetch(makeUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+    } catch {}
+  }
+
+  showBanner(
+    els.pocFormMsg,
+    `접수 완료 [${receiptId}]: ${payload.company} (${payload.manager}님) 기업 실증(PoC) 및 라이선스 안내가 등록되었습니다.`
+  );
+  els.pocLeadForm.reset();
+});
+
+// 뷰포트 컨트롤
 document.querySelectorAll("[data-view]").forEach((btn) => {
   btn.addEventListener("click", () => {
     document.querySelectorAll("[data-view]").forEach((b) => b.classList.remove("active"));
@@ -1018,6 +1227,14 @@ els.wireframeBtn?.addEventListener("click", () => {
   els.wireframeBtn.classList.toggle("active", isWireframe);
   viewer?.setWireframe(isWireframe);
 });
+
+els.envelopeBtn?.addEventListener("click", () => {
+  isEnvelopeShown = !isEnvelopeShown;
+  els.envelopeBtn.classList.toggle("active", isEnvelopeShown);
+  viewer?.setEnvelopeVisible(isEnvelopeShown);
+});
+
+els.snapshotBtn?.addEventListener("click", handleCaptureSnapshot);
 
 els.mobileExpandBtn?.addEventListener("click", () => {
   isMobileStageExpanded = !isMobileStageExpanded;
@@ -1066,4 +1283,4 @@ els.downloadBomBtn.addEventListener("click", handleExportBomCsv);
 const saved = loadPersistedSession();
 if (saved) {
   enterStudio(saved);
-}
+      }
