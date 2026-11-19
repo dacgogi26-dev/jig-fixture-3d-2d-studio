@@ -149,7 +149,13 @@ export function parseFieldEngineeringIntent(rawText = "", overrides = {}) {
 
   let mechanismType = overrides.mechanismType || "";
   if (!mechanismType) {
-    if (/v\s*블록|브이\s*블록|v-block|원통.*드릴|파이프.*고정|환봉/.test(lower)) {
+    if (/볼스크류|리니어\s*스테이지|lm\s*가이드|서보\s*스테이지|단축\s*로봇/.test(lower)) {
+      mechanismType = "ballscrew_stage";
+    } else if (/3조|삼조|동심\s*척|스크롤\s*척|3-jaw|원형\s*척/.test(lower)) {
+      mechanismType = "three_jaw_chuck";
+    } else if (/프로파일|알루미늄\s*프레임|장비\s*가대|베이스\s*프레임|워크스테이션|4040/.test(lower)) {
+      mechanismType = "extrusion_frame";
+    } else if (/v\s*블록|브이\s*블록|v-block|원통.*드릴|파이프.*고정|환봉/.test(lower)) {
       mechanismType = "vblock_clamp";
     } else if (/포고핀|프레스|압입|수직\s*가압|열융착|검사\s*지그/.test(lower)) {
       mechanismType = "vertical_press";
@@ -570,6 +576,12 @@ export function generateRealCadEngineering(rawText, overrides = {}) {
       projection: "KS B ISO 128 제3각법",
       tolerance: `가이드축 Ø${shaftDia} g6 / 부쉬 H7 / 평행도 0.015mm`,
     },
+    reasoningSteps: [
+      `현장 사양 해독: [${p.mechanismType.toUpperCase()}] 아키텍처 채택 · 정하중 ${p.loadKg}kgf + 가감속 ${p.accelG}G`,
+      `동역학 평형 계산: 동적 부하 ${dynamicLoadN.toFixed(1)}N · 마찰계수 μ=${surf.mu} 반영 필요 추력 ${requiredClampN.toFixed(1)}N 산출`,
+      `재료 임계 검증: 축경 Ø${shaftDia}g6 (처짐 ${shaftDeflectUm}μm ≤ 25μm) · 전단응력 ${tauMaxMpa}MPa 대조`,
+      `표준품 확정: MISUMI ${p.priority.toUpperCase()} 라인업 총 ${built.bom.length}종 매칭 (${built.parts.length}개 3D 솔리드 합성)`,
+    ],
     workpiece: built.workpiece,
     parts: built.parts,
   };
@@ -651,6 +663,689 @@ function buildPrecisionAssembly({
       });
     });
   };
+
+  // [신규 기구 6] 볼스크류 · 듀얼 LM가이드 정밀 리니어 스테이지 (Ball-Screw & LM Actuator)
+  if (p.mechanismType === "ballscrew_stage") {
+    const travel = Math.max(40, p.strokeMm * 2);
+    const stageLen = Math.max(260, travel + 160);
+    const stageW = Math.max(130, p.objWidthMm + 66);
+    const baseH = 20;
+    const screwDia = shaftDia >= 16 ? 16 : 12;
+    const railY = Math.round(stageW * 0.36);
+    const screwZ = baseH + 22;
+    const tableW = 92;
+    const startX = -stageLen / 2 + 46;
+
+    const parts = [
+      {
+        id: "BS_BASE",
+        stepName: "01_STAGE_PRECISION_U_BASE",
+        labelKo: "정밀 연삭 스테이지 베이스 베드",
+        material: "S45C 흑착색 연삭",
+        kind: "box",
+        x: -stageLen / 2,
+        y: -stageW / 2,
+        z: 0,
+        w: stageLen,
+        d: stageW,
+        h: baseH,
+        color: "#1e293b",
+        metalness: 0.82,
+        roughness: 0.26,
+        explodeVec: [0, 0, -45],
+      },
+      {
+        id: "BS_LM_RAIL_F",
+        stepName: "02_MISUMI_LM_RAIL_SEBS_FRONT",
+        labelKo: "전면 정밀 LM 가이드 레일 (SEBS15)",
+        material: "SUS440C 열처리",
+        kind: "box",
+        x: -stageLen / 2 + 16,
+        y: -railY - 7,
+        z: baseH,
+        w: stageLen - 32,
+        d: 14,
+        h: 14,
+        color: "#cbd5e1",
+        metalness: 0.92,
+        roughness: 0.14,
+        explodeVec: [0, -32, 12],
+      },
+      {
+        id: "BS_LM_RAIL_R",
+        stepName: "03_MISUMI_LM_RAIL_SEBS_REAR",
+        labelKo: "후면 정밀 LM 가이드 레일 (SEBS15)",
+        material: "SUS440C 열처리",
+        kind: "box",
+        x: -stageLen / 2 + 16,
+        y: railY - 7,
+        z: baseH,
+        w: stageLen - 32,
+        d: 14,
+        h: 14,
+        color: "#cbd5e1",
+        metalness: 0.92,
+        roughness: 0.14,
+        explodeVec: [0, 32, 12],
+      },
+      {
+        id: "BS_BK_UNIT",
+        stepName: `04_MISUMI_FIXED_SUPPORT_BK${screwDia}`,
+        labelKo: `고정측 앵귤러 서포트 유닛 (BK${screwDia})`,
+        material: "S45C 흑착색 + 앵귤러베어링",
+        kind: "box",
+        x: -stageLen / 2,
+        y: -30,
+        z: baseH,
+        w: 26,
+        d: 60,
+        h: 42,
+        color: "#334155",
+        metalness: 0.78,
+        roughness: 0.28,
+        explodeVec: [-42, 0, 10],
+      },
+      {
+        id: "BS_BF_UNIT",
+        stepName: `05_MISUMI_FLOAT_SUPPORT_BF${screwDia}`,
+        labelKo: `지지측 서포트 유닛 (BF${screwDia})`,
+        material: "S45C 흑착색",
+        kind: "box",
+        x: stageLen / 2 - 20,
+        y: -26,
+        z: baseH,
+        w: 20,
+        d: 52,
+        h: 40,
+        color: "#334155",
+        metalness: 0.78,
+        roughness: 0.28,
+        explodeVec: [42, 0, 10],
+      },
+      {
+        id: "BS_SCREW_SHAFT",
+        stepName: `06_MISUMI_BALLSCREW_BSS${screwDia}05`,
+        labelKo: `전조/연삭 볼스크류 축 (Ø${screwDia} 리드 5mm)`,
+        material: "SCM415 침탄열처리 (HRC58~62)",
+        kind: "cylinder",
+        axis: "x",
+        cx: -stageLen / 2 - 24,
+        cy: 0,
+        cz: screwZ,
+        radius: screwDia / 2,
+        length: stageLen + 20,
+        color: "#f1f5f9",
+        metalness: 0.95,
+        roughness: 0.1,
+        explodeVec: [0, 0, 26],
+      },
+      {
+        id: "BS_COUPLING",
+        stepName: "07_MISUMI_SLIT_COUPLING_MCK30",
+        labelKo: "고강성 슬릿 서보 커플링 (MCK30)",
+        material: "A2017 두랄루민 아노다이징",
+        kind: "cylinder",
+        axis: "x",
+        cx: -stageLen / 2 - 54,
+        cy: 0,
+        cz: screwZ,
+        radius: 15,
+        length: 28,
+        color: "#38bdf8",
+        metalness: 0.85,
+        roughness: 0.2,
+        explodeVec: [-58, 0, 15],
+      },
+      {
+        id: "BS_SERVO_MOTOR",
+        stepName: "08_AC_SERVO_MOTOR_200W",
+        labelKo: "200W 고응답 AC 서보모터 & 브래킷",
+        material: "AL 다이캐스팅 흑색도장",
+        kind: "box",
+        x: -stageLen / 2 - 126,
+        y: -30,
+        z: screwZ - 30,
+        w: 70,
+        d: 60,
+        h: 60,
+        color: "#0f172a",
+        metalness: 0.65,
+        roughness: 0.4,
+        explodeVec: [-92, 0, 0],
+      },
+      {
+        id: "BS_NUT_HOUSING",
+        stepName: "09_BALLSCREW_NUT_HOUSING",
+        labelKo: "볼스크류 플랜지 너트 하우징",
+        material: "SCM440",
+        kind: "cylinder",
+        axis: "x",
+        cx: startX + 18,
+        cy: 0,
+        cz: screwZ,
+        radius: screwDia / 2 + 8,
+        length: 44,
+        color: "#d4af37",
+        metalness: 0.86,
+        roughness: 0.22,
+        motionRole: "stageX",
+        maxTravel: travel,
+        explodeVec: [0, 0, 38],
+      },
+      {
+        id: "BS_LM_BLK_1",
+        stepName: "10_LM_GUIDE_BLOCK_FRONT",
+        labelKo: "전면 LM 가이드 슬라이더 블록",
+        material: "SUS440C + 볼리테이너",
+        kind: "box",
+        x: startX + 8,
+        y: -railY - 14,
+        z: baseH + 4,
+        w: 76,
+        d: 28,
+        h: 20,
+        color: "#10b981",
+        metalness: 0.75,
+        roughness: 0.28,
+        motionRole: "stageX",
+        maxTravel: travel,
+        explodeVec: [0, -24, 34],
+      },
+      {
+        id: "BS_LM_BLK_2",
+        stepName: "11_LM_GUIDE_BLOCK_REAR",
+        labelKo: "후면 LM 가이드 슬라이더 블록",
+        material: "SUS440C + 볼리테이너",
+        kind: "box",
+        x: startX + 8,
+        y: railY - 14,
+        z: baseH + 4,
+        w: 76,
+        d: 28,
+        h: 20,
+        color: "#10b981",
+        metalness: 0.75,
+        roughness: 0.28,
+        motionRole: "stageX",
+        maxTravel: travel,
+        explodeVec: [0, 24, 34],
+      },
+      {
+        id: "BS_TABLE",
+        stepName: "12_MOVING_WORK_CARRIAGE_TABLE",
+        labelKo: "무빙 워크 캐리지 테이블 (AL7075)",
+        material: "AL7075 경질아노다이징",
+        kind: "box",
+        x: startX,
+        y: -stageW * 0.44,
+        z: baseH + 26,
+        w: tableW,
+        d: stageW * 0.88,
+        h: 18,
+        color: "#94a3b8",
+        metalness: 0.84,
+        roughness: 0.2,
+        motionRole: "stageX",
+        maxTravel: travel,
+        explodeVec: [0, 0, 66],
+      },
+    ];
+
+    addCornerBolts(parts, stageLen * 0.44, stageW * 0.42, baseH, "BS_BOLT");
+
+    const bom = [
+      {
+        targetPartId: "BS_SCREW_SHAFT",
+        category: "구동 볼스크류",
+        partName: `C5급 정밀 볼스크류 어셈블리 (Ø${screwDia} 리드5)`,
+        brand: "MISUMI",
+        skus: { best: `BSS${screwDia}05-${stageLen}`, fast: `BSSR${screwDia}05-${stageLen}`, cheap: `C-BSR${screwDia}05-${stageLen}` },
+        specSummary: `축경 Ø${screwDia} · 리드 5mm · 반복위치정밀도 ±0.005mm`,
+        material: "SCM415 HRC60",
+        qty: 1,
+        prices: { best: 118000, fast: 136000, cheap: 58000 },
+      },
+      {
+        targetPartId: "BS_LM_RAIL_F",
+        category: "직선 LM가이드",
+        partName: "미니어처/중하중 LM 가이드 2레일 4블록",
+        brand: "MISUMI / THK",
+        skus: { best: `SVR15-${stageLen - 32}`, fast: `SEBS15-${stageLen - 32}`, cheap: `C-LMG15-${stageLen - 32}` },
+        specSummary: `레일 ${stageLen - 32}mm × 2열 (모멘트 강성 확보)`,
+        material: "SUS440C",
+        qty: 2,
+        prices: { best: 74000, fast: 85000, cheap: 39000 },
+      },
+      {
+        targetPartId: "BS_BK_UNIT",
+        category: "서포트·커플링",
+        partName: `볼스크류 서포트 유닛(BK/BF${screwDia}) & 슬릿 커플링`,
+        brand: "MISUMI",
+        skus: { best: `BK${screwDia}-SET`, fast: `EK${screwDia}-QSET`, cheap: `C-BK${screwDia}-SET` },
+        specSummary: "앵귤러 컨택트 예압 베어링 + MCK30 커플링",
+        material: "S45C + A2017",
+        qty: 1,
+        prices: { best: 69000, fast: 79000, cheap: 34000 },
+      },
+      {
+        targetPartId: "BS_SERVO_MOTOR",
+        category: "서보 구동계",
+        partName: "200W AC 서보모터 & 마운트 브래킷",
+        brand: "Mitsubishi / MISUMI",
+        skus: { best: "HG-KR23J-BRK", fast: "MSM200-Q", cheap: "STEP-NEMA23-CL" },
+        specSummary: "정격토크 0.64 N·m (최대 2.2 N·m)",
+        material: "Industrial Servo",
+        qty: 1,
+        prices: { best: 245000, fast: 275000, cheap: 98000 },
+      },
+      {
+        targetPartId: "BS_BASE",
+        category: "정밀 가공품",
+        partName: "연삭 베이스 베드 & 상부 캐리지 테이블",
+        brand: "Custom CNC",
+        skus: { best: `CNC-BS-${stageLen}`, fast: `CNC-QBS-${stageLen}`, cheap: `CNC-EBS-${stageLen}` },
+        specSummary: `${stageLen}×${stageW}mm 레일 기준턱 정밀연삭`,
+        material: "S45C + AL7075",
+        qty: 1,
+        prices: { best: 185000, fast: 230000, cheap: 135000 },
+        isCustomMachined: true,
+      },
+    ];
+
+    return {
+      titleKo: `볼스크류(Ø${screwDia}) · 듀얼 LM가이드 정밀 리니어 스테이지`,
+      titleEn: `Precision Ball-Screw & Dual LM-Guide Linear Stage (Stroke ${travel}mm)`,
+      subtitleKo: `유효 스트로크 ${travel}mm • 이송하중 ${p.loadKg}kgf(${p.accelG}G) • 위치반복정밀도 ±0.005mm`,
+      dims: { w: stageLen + 126, d: stageW, h: baseH + 56 },
+      workpiece: null,
+      bom,
+      parts,
+    };
+  }
+
+  // [신규 기구 7] 3조 동심 자동 센터링 척 픽스처 (3-Jaw Self-Centering Chuck)
+  if (p.mechanismType === "three_jaw_chuck") {
+    const chuckR = Math.max(72, Math.round(p.objWidthMm * 0.95 + 38));
+    const flangeR = chuckR + 18;
+    const bodyH = 54;
+    const jawLen = Math.round(chuckR * 0.62);
+    const jawW = 24;
+    const jawH = 38;
+    const innerR = Math.max(12, p.objWidthMm / 2);
+
+    const parts = [
+      {
+        id: "CH_FLANGE",
+        stepName: "01_CHUCK_ADAPTER_BASE_FLANGE",
+        labelKo: "척 마운팅 베이스 어댑터 플랜지",
+        material: "S45C 평면연삭",
+        kind: "cylinder",
+        axis: "z",
+        cx: 0,
+        cy: 0,
+        cz: 0,
+        radius: flangeR,
+        length: 18,
+        color: "#1e293b",
+        metalness: 0.82,
+        roughness: 0.28,
+        explodeVec: [0, 0, -45],
+      },
+      {
+        id: "CH_BODY",
+        stepName: "02_SCM440_SCROLL_CHUCK_BODY",
+        labelKo: `SCM440 고정밀 스크롤/웨지 척 바디 (Ø${chuckR * 2})`,
+        material: "SCM440 열처리 정밀연삭",
+        kind: "cylinder",
+        axis: "z",
+        cx: 0,
+        cy: 0,
+        cz: 18,
+        radius: chuckR,
+        length: bodyH,
+        color: "#64748b",
+        metalness: 0.88,
+        roughness: 0.18,
+        explodeVec: [0, 0, -10],
+      },
+      {
+        id: "CH_RING",
+        stepName: "03_INTERNAL_WEDGE_CAM_RING",
+        labelKo: "내부 동기 스크롤 웨지 링",
+        material: "SUJ2 침탄열처리",
+        kind: "cylinder",
+        axis: "z",
+        cx: 0,
+        cy: 0,
+        cz: 28,
+        radius: chuckR * 0.58,
+        length: bodyH - 6,
+        color: "#d4af37",
+        metalness: 0.86,
+        roughness: 0.22,
+        explodeVec: [0, 0, 26],
+      },
+    ];
+
+    // 0°, 120°, 240° 방사형 3조 마스터/탑 조우 배치
+    [0, 120, 240].forEach((deg, idx) => {
+      const rad = (deg * Math.PI) / 180;
+      const centerDist = innerR + jawLen / 2;
+      const jx = Math.cos(rad) * centerDist;
+      const jy = Math.sin(rad) * centerDist;
+
+      parts.push({
+        id: `CH_JAW_${idx + 1}`,
+        stepName: `0${idx + 4}_HARDENED_STEP_JAW_${deg}DEG`,
+        labelKo: `120° 동기 경화 마스터 조우 #${idx + 1} (${deg}°)`,
+        material: "SCM415 침탄경화 (HRC60)",
+        kind: "rotated_box",
+        cx: jx,
+        cy: jy,
+        z: 18 + bodyH - 8,
+        w: jawLen,
+        d: jawW,
+        h: jawH,
+        angleDeg: deg,
+        color: "#e2e8f0",
+        metalness: 0.92,
+        roughness: 0.14,
+        motionRole: "radialJaw",
+        motionAngleDeg: deg,
+        maxTravel: p.strokeMm * 0.5,
+        explodeVec: [Math.cos(rad) * 42, Math.sin(rad) * 42, 54],
+      });
+    });
+
+    // 플랜지 원주 볼트 6EA
+    for (let b = 0; b < 6; b++) {
+      const ang = (b * Math.PI) / 3 + Math.PI / 6;
+      const br = chuckR + 9;
+      parts.push({
+        id: `CH_BOLT_${b + 1}`,
+        stepName: `FASTENER_M8_CHUCK_BOLT_${b + 1}`,
+        labelKo: "고장력 플랜지 체결 볼트 (M8 10.9)",
+        material: "SCM435 (10.9)",
+        kind: "bolt",
+        cx: Math.cos(ang) * br,
+        cy: Math.sin(ang) * br,
+        cz: 18,
+        radius: 4,
+        headRadius: 6.5,
+        headLength: 8,
+        shankLength: 14,
+        color: "#0f172a",
+        metalness: 0.85,
+        roughness: 0.25,
+        explodeVec: [0, 0, 35],
+      });
+    }
+
+    const bom = [
+      {
+        targetPartId: "CH_BODY",
+        category: "3조 동심 척",
+        partName: `고정밀 3조 셀프센터링 스크롤/공압 척 (Ø${chuckR * 2})`,
+        brand: "Kitagawa / MISUMI",
+        skus: { best: `SC-${chuckR * 2}`, fast: `BR-${chuckR * 2}-Q`, cheap: `C-3JAW-${chuckR * 2}` },
+        specSummary: `파지경 Ø${p.objWidthMm} · 동심 반복정밀도 0.015mm`,
+        material: "SCM440 + SCM415",
+        qty: 1,
+        prices: { best: 320000, fast: 368000, cheap: 165000 },
+      },
+      {
+        targetPartId: "CH_JAW_1",
+        category: "소프트/하드 조우",
+        partName: "성형 소프트/세레이션 탑 조우 세트 (3EA/1조)",
+        brand: "MISUMI",
+        skus: { best: `SJ06-${chuckR}`, fast: `SJ06-${chuckR}-Q`, cheap: `C-SJ-${chuckR}` },
+        specSummary: "120° 등분 세레이션 치형 결합",
+        material: "S45C / SCM415",
+        qty: 1,
+        prices: { best: 48000, fast: 56000, cheap: 26000 },
+      },
+      {
+        targetPartId: "CH_FLANGE",
+        category: "어댑터 플레이트",
+        partName: "인덱스/정반 마운팅 어댑터 플랜지",
+        brand: "Custom CNC",
+        skus: { best: `CNC-ADP-${flangeR * 2}`, fast: `CNC-QADP-${flangeR * 2}`, cheap: `CNC-EADP-${flangeR * 2}` },
+        specSummary: `Ø${flangeR * 2} × 18T 인로(Spigot) H7 정밀선삭`,
+        material: "S45C",
+        qty: 1,
+        prices: { best: 95000, fast: 125000, cheap: 72000 },
+        isCustomMachined: true,
+      },
+    ];
+
+    return {
+      titleKo: `120° 동기 3조 동심 자동 센터링 척 픽스처 (Ø${chuckR * 2})`,
+      titleEn: `3-Jaw Self-Centering Concentric Chuck Fixture (D${chuckR * 2})`,
+      subtitleKo: `원통 모재 Ø${p.objWidthMm} 3점 동심 파지 • 파지하중 ${p.loadKg}kgf • 조우 스트로크 ${p.strokeMm}mm`,
+      dims: { w: flangeR * 2, d: flangeR * 2, h: 18 + bodyH + jawH },
+      workpiece: {
+        shape: "cylinder",
+        axis: "z",
+        radius: innerR,
+        length: Math.max(60, p.objHeightMm * 0.7),
+        z: 18 + bodyH - 12,
+      },
+      bom,
+      parts,
+    };
+  }
+
+  // [신규 기구 8] 알루미늄 프로파일 설비 가대 & 정밀 상판 프레임 (MISUMI HFS8-4040)
+  if (p.mechanismType === "extrusion_frame") {
+    const fw = Math.max(320, p.objWidthMm * 4);
+    const fd = Math.max(260, Math.round(fw * 0.78));
+    const fh = Math.max(240, 180 + p.strokeMm * 2);
+    const prof = p.loadKg >= 80 ? 45 : 40;
+    const footH = 26;
+    const topThick = 14;
+
+    const parts = [];
+    const corners = [
+      [-fw / 2, -fd / 2],
+      [fw / 2 - prof, -fd / 2],
+      [-fw / 2, fd / 2 - prof],
+      [fw / 2 - prof, fd / 2 - prof],
+    ];
+
+    // 4개 수직 기둥 프로파일 + 하부 레벨링 풋
+    corners.forEach(([cx, cy], idx) => {
+      parts.push({
+        id: `FR_FOOT_${idx + 1}`,
+        stepName: `0${idx + 1}_MISUMI_LEVELING_PAD_FJ12_${idx + 1}`,
+        labelKo: `중하중 방진 레벨링 조절좌 #${idx + 1} (FJ12)`,
+        material: "SUS304 + NBR 방진고무",
+        kind: "cylinder",
+        axis: "z",
+        cx: cx + prof / 2,
+        cy: cy + prof / 2,
+        cz: 0,
+        radius: 22,
+        length: footH,
+        color: "#1e293b",
+        metalness: 0.5,
+        roughness: 0.6,
+        explodeVec: [0, 0, -45],
+      });
+
+      parts.push({
+        id: `FR_COL_${idx + 1}`,
+        stepName: `0${idx + 5}_MISUMI_EXTRUSION_HFS8_${prof}${prof}_COL_${idx + 1}`,
+        labelKo: `수직 알루미늄 프로파일 기둥 (${prof}×${prof})`,
+        material: "A6N01S-T5 백색 아노다이징",
+        kind: "box",
+        x: cx,
+        y: cy,
+        z: footH,
+        w: prof,
+        d: prof,
+        h: fh,
+        color: "#cbd5e1",
+        metalness: 0.85,
+        roughness: 0.22,
+        explodeVec: [cx > 0 ? 35 : -35, cy > 0 ? 35 : -35, 0],
+      });
+    });
+
+    // 상·하부 가로/세로 타이 빔 프로파일
+    const zLevels = [footH + 24, footH + fh - prof];
+    zLevels.forEach((zl, li) => {
+      const tag = li === 0 ? "LOWER" : "UPPER";
+      parts.push(
+        {
+          id: `FR_BEAM_F_${tag}`,
+          stepName: `BEAM_HFS8_${prof}${prof}_FRONT_${tag}`,
+          labelKo: `${li === 0 ? "하단" : "상단"} 전면 보강 프로파일 빔`,
+          material: "A6N01S-T5",
+          kind: "box",
+          x: -fw / 2 + prof,
+          y: -fd / 2,
+          z: zl,
+          w: fw - prof * 2,
+          d: prof,
+          h: prof,
+          color: "#94a3b8",
+          metalness: 0.84,
+          roughness: 0.24,
+          explodeVec: [0, -35, li === 0 ? -15 : 20],
+        },
+        {
+          id: `FR_BEAM_R_${tag}`,
+          stepName: `BEAM_HFS8_${prof}${prof}_REAR_${tag}`,
+          labelKo: `${li === 0 ? "하단" : "상단"} 후면 보강 프로파일 빔`,
+          material: "A6N01S-T5",
+          kind: "box",
+          x: -fw / 2 + prof,
+          y: fd / 2 - prof,
+          z: zl,
+          w: fw - prof * 2,
+          d: prof,
+          h: prof,
+          color: "#94a3b8",
+          metalness: 0.84,
+          roughness: 0.24,
+          explodeVec: [0, 35, li === 0 ? -15 : 20],
+        },
+        {
+          id: `FR_BEAM_L_${tag}`,
+          stepName: `BEAM_HFS8_${prof}${prof}_LEFT_${tag}`,
+          labelKo: `${li === 0 ? "하단" : "상단"} 좌측 타이 프로파일`,
+          material: "A6N01S-T5",
+          kind: "box",
+          x: -fw / 2,
+          y: -fd / 2 + prof,
+          z: zl,
+          w: prof,
+          d: fd - prof * 2,
+          h: prof,
+          color: "#94a3b8",
+          metalness: 0.84,
+          roughness: 0.24,
+          explodeVec: [-35, 0, li === 0 ? -15 : 20],
+        },
+        {
+          id: `FR_BEAM_RT_${tag}`,
+          stepName: `BEAM_HFS8_${prof}${prof}_RIGHT_${tag}`,
+          labelKo: `${li === 0 ? "하단" : "상단"} 우측 타이 프로파일`,
+          material: "A6N01S-T5",
+          kind: "box",
+          x: fw / 2 - prof,
+          y: -fd / 2 + prof,
+          z: zl,
+          w: prof,
+          d: fd - prof * 2,
+          h: prof,
+          color: "#94a3b8",
+          metalness: 0.84,
+          roughness: 0.24,
+          explodeVec: [35, 0, li === 0 ? -15 : 20],
+        }
+      );
+    });
+
+    // 상판 정밀 장비 마운팅 정반 플레이트
+    parts.push({
+      id: "FR_TOP_PLATE",
+      stepName: "TOP_GROUND_TOOLING_PLATE_AL6061",
+      labelKo: `상부 정밀 툴링 마운트 정반 (${fw}×${fd}×${topThick}T)`,
+      material: "AL6061-T6 정밀평면판",
+      kind: "box",
+      x: -fw / 2,
+      y: -fd / 2,
+      z: footH + fh,
+      w: fw,
+      d: fd,
+      h: topThick,
+      color: "#334155",
+      metalness: 0.78,
+      roughness: 0.28,
+      explodeVec: [0, 0, 75],
+    });
+
+    addCornerBolts(parts, fw / 2 - prof / 2, fd / 2 - prof / 2, footH + fh + topThick, "FR_BOLT");
+
+    const bom = [
+      {
+        targetPartId: "FR_COL_1",
+        category: "알루미늄 프로파일",
+        partName: `고강성 8시리즈 알루미늄 프로파일 (${prof}×${prof})`,
+        brand: "MISUMI",
+        skus: { best: `HFS8-${prof}${prof}-SET`, fast: `HFS8-${prof}${prof}-Q`, cheap: `C-HFS8-${prof}${prof}` },
+        specSummary: `기둥 4본 + 상하 보강빔 8본 정밀 절단 세트`,
+        material: "A6N01S-T5",
+        qty: 12,
+        prices: { best: 9800, fast: 11500, cheap: 5900 },
+      },
+      {
+        targetPartId: "FR_BEAM_F_UPPER",
+        category: "브래킷·너트",
+        partName: "다이캐스팅 고하중 브래킷 & 선입/후입 너트",
+        brand: "MISUMI",
+        skus: { best: `HBLFSN8-${prof}-KIT`, fast: `HBLFSN8-Q`, cheap: `C-HBL8-KIT` },
+        specSummary: "모서리 직각 보강 브래킷 16EA + M8 너트셋",
+        material: "ADC12 알루미늄",
+        qty: 16,
+        prices: { best: 2400, fast: 2800, cheap: 1200 },
+      },
+      {
+        targetPartId: "FR_FOOT_1",
+        category: "방진 레벨링좌",
+        partName: "중하중 스테인리스 방진 조절좌 (M12)",
+        brand: "MISUMI",
+        skus: { best: "FJ12-60", fast: "FJ12-60-Q", cheap: "C-FJ12-60" },
+        specSummary: "허용하중 개당 500kgf / 바닥 수평 미세조절",
+        material: "SUS304 + NBR",
+        qty: 4,
+        prices: { best: 7600, fast: 8900, cheap: 3900 },
+      },
+      {
+        targetPartId: "FR_TOP_PLATE",
+        category: "상부 정반",
+        partName: `설비 마운팅 상판 플레이트 (${fw}×${fd}×${topThick}T)`,
+        brand: "Custom CNC",
+        skus: { best: `CNC-TOP-${fw}X${fd}`, fast: `CNC-QTOP-${fw}`, cheap: `CNC-ETOP-${fw}` },
+        specSummary: "설비 체결 탭홀 가공 및 아노다이징",
+        material: "AL6061-T6",
+        qty: 1,
+        prices: { best: 168000, fast: 215000, cheap: 128000 },
+        isCustomMachined: true,
+      },
+    ];
+
+    return {
+      titleKo: `MISUMI ${prof}×${prof} 알루미늄 프로파일 설비 베이스 가대`,
+      titleEn: `Aluminum Extrusion Equipment Workstation Frame (${fw}x${fd})`,
+      subtitleKo: `상판 적재하중 ${p.loadKg}kgf • 2단 둘레 타이빔 좌굴 보강 • 방진 조절좌 포함`,
+      dims: { w: fw, d: fd, h: footH + fh + topThick },
+      workpiece: null,
+      bom,
+      parts,
+    };
+  }
 
   // [기구 1] V-블록 원통 파이프/샤프트 CNC 가공 클램핑 지그 (현업 필수 지그!)
   if (p.mechanismType === "vblock_clamp") {
@@ -1913,18 +2608,18 @@ function buildPrecisionAssembly({
 }
 
 /**
- * Make.com "Import Blueprint" 메뉴에 즉시 넣을 수 있는 실전 시나리오 JSON 생성기
+ * Make.com "Import Blueprint" 메뉴에 즉시 넣을 수 있는 실전 8종 치공구 시나리오 JSON 생성기 (V5.0)
  */
 export function generateMakeBlueprintJson() {
   return JSON.stringify(
     {
-      name: "AI Mechanical Jig & MISUMI Engineering Pipeline V4",
+      name: "FORMECH CAE V5 — 8-Mechanism Shop-Floor AI & MISUMI Pipeline",
       flow: [
         {
           id: 1,
           module: "gateway:CustomWebHook",
           version: 1,
-          parameters: { name: "CAD Studio Field Prompt Receiver" },
+          parameters: { name: "FORMECH Studio Field Prompt Receiver" },
           mapper: {},
         },
         {
@@ -1939,7 +2634,7 @@ export function generateMakeBlueprintJson() {
               {
                 role: "system",
                 content:
-                  "당신은 20년 경력의 기계설계·자동화 치공구 수석 엔지니어입니다. 현장 작업자의 요청에서 mechanismType(parallel_gripper|vblock_clamp|vertical_press|toggle_clamp|indexing_plunger), loadKg, accelG, objWidthMm, strokeMm, padKey(urethane|silicone|carbide_jaw), actuation(spring|pneumatic|toggle), priority(best|fast|cheap), engineerNote 필드를 가진 JSON만 반환하세요.",
+                  "당신은 20년 경력의 기계설계·자동화 치공구 수석 엔지니어입니다. 현장 작업자의 요청에서 mechanismType(parallel_gripper|vblock_clamp|vertical_press|toggle_clamp|indexing_plunger|ballscrew_stage|three_jaw_chuck|extrusion_frame), loadKg, accelG, objWidthMm, strokeMm, padKey(urethane|silicone|carbide_jaw), actuation(spring|pneumatic|toggle), priority(best|fast|cheap), engineerNote 필드를 가진 JSON만 반환하세요.",
               },
               {
                 role: "user",
@@ -1964,4 +2659,4 @@ export function generateMakeBlueprintJson() {
     null,
     2
   );
-    }
+        }
