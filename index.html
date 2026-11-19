@@ -39,12 +39,20 @@
     </div>
 
     <div id="navAuthArea" class="topbar-right hidden">
+      <button id="nlBlurToggleBtn" class="btn btn-ghost active-blur-pill" type="button" title="자연어 프롬프트 및 실무 지시문 블러 보호 토글">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"></path>
+          <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"></path>
+          <line x1="1" y1="1" x2="23" y2="23"></line>
+        </svg>
+        <span id="nlBlurLabel">자연어 블러 ON</span>
+      </button>
       <button id="customerMaskToggleBtn" class="btn btn-ghost hidden" type="button" title="고객사 열람 시점 마스킹 시뮬레이션">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
-          <circle cx="12" cy="12" r="3"></circle>
+          <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+          <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
         </svg>
-        <span id="customerMaskLabel">고객 시점 마스킹</span>
+        <span id="customerMaskLabel" class="hide-mobile">고객 시점 마스킹</span>
       </button>
       <span id="tierBadge" class="tier-chip tier-admin">ADMIN</span>
       <span id="userLabel" class="num hide-mobile" style="font-size: 11px; color: #64748b;"></span>
@@ -106,10 +114,14 @@
         </div>
 
         <div class="prompt-composer">
-          <textarea
-            id="promptInput"
-            placeholder="현업 용어로 편하게 말씀하거나 입력하세요. 예: 서스 원통 파이프 Ø42 CNC 드릴링 치는데 절삭부하 45kgf 걸려도 안 돌아가게 90도 브이블록 지그 짜줘"
-          ></textarea>
+          <div class="prompt-blur-wrap">
+            <textarea
+              id="promptInput"
+              class="nl-target nl-blurred"
+              placeholder="현업 용어로 편하게 말씀하거나 입력하세요."
+            ></textarea>
+            <div id="promptBlurHint" class="prompt-blur-chip">자연어 블러 보호 중 · 클릭 시 입력</div>
+          </div>
           <div class="composer-actions">
             <button id="micBtn" class="btn btn-mic" type="button">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -171,31 +183,34 @@
       </div>
 
       <div class="panel-group">
-        <div class="section-label"><span>현업 생산기술 실전 프리셋</span></div>
+        <div class="section-label">
+          <span>현업 생산기술 실전 프리셋</span>
+          <button id="inlineNlBlurBtn" class="mini-link-btn" type="button">자연어 블러 켜짐</button>
+        </div>
         <div class="preset-stack">
-          <button class="preset-row" type="button" data-prompt="원통 서스 파이프 Ø42 CNC 드릴링 치는데 절삭부하 45kgf 걸려도 회전 안 하게 90도 브이블록 상부 가압 지그 짜줘">
+          <button class="preset-row" type="button" data-preset="vblock">
             <span class="preset-tag">CNC</span>
-            <span>파이프 Ø42 절삭부하 45kgf 대응 90° V-블록</span>
+            <span class="preset-nl-text nl-target nl-blurred">파이프 Ø42 절삭부하 45kgf 대응 90° V-블록</span>
           </button>
-          <button class="preset-row" type="button" data-prompt="원통 감속기 플랜지 하우징 Ø58 선삭 후 동심도 측정하게 120도 3조 셀프센터링 동심 척 픽스처 55kgf 파지력으로 설계해줘">
+          <button class="preset-row" type="button" data-preset="chuck">
             <span class="preset-tag">3-JAW</span>
-            <span>감속기 하우징 Ø58 · 120° 3조 동심 자동 센터링 척</span>
+            <span class="preset-nl-text nl-target nl-blurred">감속기 하우징 Ø58 · 120° 3조 동심 자동 센터링 척</span>
           </button>
-          <button class="preset-row" type="button" data-prompt="비전 검사기 광학 헤드 22kg 올리고 스트로크 64mm 가감속 1.2G 고속 이송하는 볼스크류 듀얼 LM가이드 서보 리니어 스테이지 짜줘">
+          <button class="preset-row" type="button" data-preset="stage">
             <span class="preset-tag">SERVO</span>
-            <span>비전 헤드 22kg · 1.2G 볼스크류 듀얼 LM 스테이지</span>
+            <span class="preset-nl-text nl-target nl-blurred">비전 헤드 22kg · 1.2G 볼스크류 듀얼 LM 스테이지</span>
           </button>
-          <button class="preset-row" type="button" data-prompt="파우치 배터리 셀 68x24x104 무게 8kg 픽앤플레이스 고속 이송 가감속 2G 걸리는데 찍힘 없이 파지하는 공압 평행척 단납기로 잡아줘">
+          <button class="preset-row" type="button" data-preset="gripper">
             <span class="preset-tag">P&amp;P</span>
-            <span>이차전지 8kg · 2G 공압 평행 그리퍼 (당일출고)</span>
+            <span class="preset-nl-text nl-target nl-blurred">이차전지 8kg · 2G 공압 평행 그리퍼 (당일출고)</span>
           </button>
-          <button class="preset-row" type="button" data-prompt="전장 PCB 130x90 기능검사 지그에서 포고핀 반력 35kgf 수직으로 찍어누르는 트윈 가이드 프레스 픽스처 설계해줘">
+          <button class="preset-row" type="button" data-preset="press">
             <span class="preset-tag">ICT</span>
-            <span>전장 PCB 포고핀 반력 35kgf 수직 가이드 프레스</span>
+            <span class="preset-nl-text nl-target nl-blurred">전장 PCB 포고핀 반력 35kgf 수직 가이드 프레스</span>
           </button>
-          <button class="preset-row" type="button" data-prompt="레이저 마킹 설비 상판 95kg 하중 버티는 미스미 4545 알루미늄 프로파일 정반 프레임 가대 양산 원가절감형으로 구성해줘">
+          <button class="preset-row" type="button" data-preset="frame">
             <span class="preset-tag">FRAME</span>
-            <span>레이저 설비 95kg 미스미 알루미늄 프로파일 정반 가대</span>
+            <span class="preset-nl-text nl-target nl-blurred">레이저 설비 95kg 미스미 알루미늄 프로파일 정반 가대</span>
           </button>
         </div>
       </div>
@@ -265,7 +280,7 @@
         <div class="stage-overlay-top">
           <div class="glass-box title-hud">
             <h1 id="designTitle">정밀 브이블록 클램프 어셈블리</h1>
-            <p id="designSubtitle">부품을 클릭하거나 터치하면 재질·규격 인스펙터가 표시됩니다.</p>
+            <p id="designSubtitle" class="nl-target nl-blurred">부품을 클릭하거나 터치하면 재질·규격 인스펙터가 표시됩니다.</p>
           </div>
 
           <div class="glass-box cam-dock">
